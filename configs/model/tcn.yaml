@@ -1,0 +1,12 @@
+# TCN model configuration
+name: tcn
+
+# Architecture
+num_channels: 128
+num_layers: 8
+kernel_size: 3
+dropout: 0.33
+
+# Optimisation
+learning_rate: 0.001
+weight_decay: 0.00001

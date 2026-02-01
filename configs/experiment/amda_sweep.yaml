@@ -1,0 +1,14 @@
+# AMDA scaling factor sweep experiment
+# @package _global_
+
+name: amda_sweep
+
+# Enable AMDA
+data:
+  use_amda: true
+
+# Hydra sweeper configuration for AMDA scale
+hydra:
+  sweeper:
+    params:
+      data.amda_scale: 1.5,2.0,2.5,3.0,3.5,4.0,5.0

@@ -1,0 +1,35 @@
+# Root Hydra configuration for NILM training
+
+defaults:
+  - model: tcn
+  - data: sided
+  - experiment: baseline
+  - _self_
+
+# Global settings
+seed: 42
+output_dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+# Training
+training:
+  max_epochs: 100
+  patience: 15
+  accelerator: auto
+  devices: auto
+  precision: "32"
+  gradient_clip_val: 1.0
+
+# Logging
+logging:
+  use_wandb: true
+  wandb_offline: false
+  project_name: nilm-research
+  log_every_n_steps: 10
+
+# Hydra configuration
+hydra:
+  run:
+    dir: ${output_dir}
+  sweep:
+    dir: outputs/sweeps/${now:%Y-%m-%d}
+    subdir: ${hydra.job.num}

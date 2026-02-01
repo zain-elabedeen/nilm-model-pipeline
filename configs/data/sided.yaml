@@ -1,0 +1,37 @@
+# SIDED dataset configuration
+name: sided
+
+# Data location
+data_dir: ~/.cache/nilm-research/sided
+
+# Window configuration
+window_size: 60  # 1 hour at 1-minute resolution
+stride: 1
+
+# Batch size
+batch_size: 256
+num_workers: 4
+
+# Facility splits
+train_facilities:
+  - F01
+  - F02
+  - F03
+  - F04
+  - F05
+  - F06
+  - F07
+
+val_facilities:
+  - F08
+
+test_facilities:
+  - F09
+  - F10
+
+# Preprocessing
+use_robust_scaling: true
+
+# Augmentation
+use_amda: true
+amda_scale: 2.5

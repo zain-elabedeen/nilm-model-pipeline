@@ -1,0 +1,13 @@
+# Baseline experiment configuration (no augmentation)
+# @package _global_
+
+name: baseline
+
+# Override data augmentation
+data:
+  use_amda: false
+
+# Shorter training for baseline
+training:
+  max_epochs: 50
+  patience: 10
