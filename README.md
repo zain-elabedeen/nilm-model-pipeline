@@ -6,7 +6,7 @@ Trains disaggregation models for identifying what's consuming and generating pow
 
 **Measure** → Model (this) → Orchestrate → Trade
 
-This repository trains PyTorch models on the [SIDED dataset](https://github.com/ChristianInterno/SIDED) and exports ONNX models for deployment in the [Energy Disaggregator](https://github.com/underscoreHQ/underscore-energy-disaggregator-edge) edge daemon.
+This repository trains PyTorch models on the [SIDED dataset](https://github.com/ChristianInterno/SIDED) and exports ONNX models for deployment in the [Edge Runtime](https://github.com/underscoreHQ/underscore-edge-runtime) daemon.
 
 ## What it produces
 
@@ -56,7 +56,7 @@ python scripts/train.py experiment=amda_sweep --multirun
 python scripts/export_onnx.py checkpoints/best.ckpt \
     --model-type tcn \
     --output-dir exports \
-    --copy-to-rust ../underscore-energy-disaggregator-edge/models
+    --copy-to-rust ../underscore-edge-runtime/models
 ```
 
 The export produces:
