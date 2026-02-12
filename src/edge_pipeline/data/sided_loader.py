@@ -68,7 +68,7 @@ class SidedLoader:
 
     def __init__(
         self,
-        cache_dir: Path | str = "~/.cache/nilm-research/sided",
+        cache_dir: Path | str = "~/.cache/edge-pipeline/sided",
         force_download: bool = False,
     ):
         self.cache_dir = Path(cache_dir).expanduser()

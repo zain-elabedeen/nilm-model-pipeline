@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from nilm_research.evaluation.metrics import NilmMetrics, compute_metrics_numpy
+from edge_pipeline.evaluation.metrics import NilmMetrics, compute_metrics_numpy
 
 
 class TestNilmMetrics:

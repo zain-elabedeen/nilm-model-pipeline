@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 
-from nilm_research.models.base import NilmModel
+from edge_pipeline.models.base import NilmModel
 
 
 class CausalConv1d(nn.Module):

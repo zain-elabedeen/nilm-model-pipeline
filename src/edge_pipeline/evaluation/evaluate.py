@@ -5,8 +5,8 @@ from typing import Literal
 import numpy as np
 import torch
 
-from nilm_research.data.datamodule import NilmDataModule
-from nilm_research.evaluation.metrics import compute_metrics_numpy
+from edge_pipeline.data.datamodule import NilmDataModule
+from edge_pipeline.evaluation.metrics import compute_metrics_numpy
 
 
 APPLIANCE_NAMES = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
@@ -22,9 +22,9 @@ def load_model(checkpoint_path: str, model_type: Literal["lstm", "tcn", "atcn"])
     Returns:
         Loaded model in eval mode
     """
-    from nilm_research.models.atcn import ATCNModel
-    from nilm_research.models.lstm import LSTMModel
-    from nilm_research.models.tcn import TCNModel
+    from edge_pipeline.models.atcn import ATCNModel
+    from edge_pipeline.models.lstm import LSTMModel
+    from edge_pipeline.models.tcn import TCNModel
 
     model_classes = {
         "lstm": LSTMModel,

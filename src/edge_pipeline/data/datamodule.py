@@ -8,9 +8,9 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from nilm_research.data.augmentation import AMDATransform, ComposeTransforms
-from nilm_research.data.preprocessing import WindowGenerator
-from nilm_research.data.sided_loader import FacilityData, SidedLoader
+from edge_pipeline.data.augmentation import AMDATransform, ComposeTransforms
+from edge_pipeline.data.preprocessing import WindowGenerator
+from edge_pipeline.data.sided_loader import FacilityData, SidedLoader
 
 
 class NilmTorchDataset(Dataset):
@@ -56,7 +56,7 @@ class NilmDataModule(pl.LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str | Path = "~/.cache/nilm-research/sided",
+        data_dir: str | Path = "~/.cache/edge-pipeline/sided",
         window_size: int = 60,
         stride: int = 1,
         batch_size: int = 256,

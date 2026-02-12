@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from nilm_research.evaluation.metrics import NilmMetrics
+from edge_pipeline.evaluation.metrics import NilmMetrics
 
 
 class NilmModel(pl.LightningModule, ABC):

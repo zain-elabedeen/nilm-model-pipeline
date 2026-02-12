@@ -4,11 +4,11 @@
 import argparse
 from pathlib import Path
 
-from nilm_research.data.datamodule import NilmDataModule
-from nilm_research.export.onnx_exporter import OnnxExporter
-from nilm_research.models.atcn import ATCNModel
-from nilm_research.models.lstm import LSTMModel
-from nilm_research.models.tcn import TCNModel
+from edge_pipeline.data.datamodule import NilmDataModule
+from edge_pipeline.export.onnx_exporter import OnnxExporter
+from edge_pipeline.models.atcn import ATCNModel
+from edge_pipeline.models.lstm import LSTMModel
+from edge_pipeline.models.tcn import TCNModel
 
 
 def load_model(checkpoint_path: str, model_type: str):
@@ -50,7 +50,7 @@ def main():
     parser.add_argument(
         "--data-dir",
         type=str,
-        default="~/.cache/nilm-research/sided",
+        default="~/.cache/edge-pipeline/sided",
         help="Data directory (for normalisation metadata)",
     )
     parser.add_argument(

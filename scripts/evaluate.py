@@ -3,8 +3,8 @@
 
 import argparse
 
-from nilm_research.data.datamodule import NilmDataModule
-from nilm_research.evaluation.evaluate import APPLIANCE_NAMES, evaluate_model, load_model
+from edge_pipeline.data.datamodule import NilmDataModule
+from edge_pipeline.evaluation.evaluate import APPLIANCE_NAMES, evaluate_model, load_model
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
     parser.add_argument(
         "--data-dir",
         type=str,
-        default="~/.cache/nilm-research/sided",
+        default="~/.cache/edge-pipeline/sided",
         help="Data directory",
     )
     parser.add_argument("--window-size", type=int, default=60, help="Window size")

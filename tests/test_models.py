@@ -3,9 +3,9 @@
 import pytest
 import torch
 
-from nilm_research.models.atcn import ATCNModel, ATCNModelLite
-from nilm_research.models.lstm import AttentionLSTMModel, LSTMModel
-from nilm_research.models.tcn import TCNModel, TCNModelSimple
+from edge_pipeline.models.atcn import ATCNModel, ATCNModelLite
+from edge_pipeline.models.lstm import AttentionLSTMModel, LSTMModel
+from edge_pipeline.models.tcn import TCNModel, TCNModelSimple
 
 
 class TestModelForwardPass:

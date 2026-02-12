@@ -10,9 +10,9 @@ import onnxruntime as ort
 import pytest
 import torch
 
-from nilm_research.export.onnx_exporter import OnnxExporter
-from nilm_research.models.lstm import LSTMModel
-from nilm_research.models.tcn import TCNModel
+from edge_pipeline.export.onnx_exporter import OnnxExporter
+from edge_pipeline.models.lstm import LSTMModel
+from edge_pipeline.models.tcn import TCNModel
 
 
 class TestOnnxExporter:

@@ -5,11 +5,11 @@ import hydra
 import pytorch_lightning as pl
 from omegaconf import DictConfig, OmegaConf
 
-from nilm_research.data.datamodule import NilmDataModule
-from nilm_research.models.atcn import ATCNModel
-from nilm_research.models.lstm import LSTMModel
-from nilm_research.models.tcn import TCNModel
-from nilm_research.training.trainer import NilmTrainer
+from edge_pipeline.data.datamodule import NilmDataModule
+from edge_pipeline.models.atcn import ATCNModel
+from edge_pipeline.models.lstm import LSTMModel
+from edge_pipeline.models.tcn import TCNModel
+from edge_pipeline.training.trainer import NilmTrainer
 
 
 def get_model(cfg: DictConfig):

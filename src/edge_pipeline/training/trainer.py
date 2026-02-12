@@ -11,8 +11,8 @@ from pytorch_lightning.callbacks import (
 )
 from pytorch_lightning.loggers import WandbLogger
 
-from nilm_research.data.datamodule import NilmDataModule
-from nilm_research.models.base import NilmModel
+from edge_pipeline.data.datamodule import NilmDataModule
+from edge_pipeline.models.base import NilmModel
 
 
 class NilmTrainer:
@@ -22,7 +22,7 @@ class NilmTrainer:
         self,
         model: NilmModel,
         datamodule: NilmDataModule,
-        project_name: str = "nilm-research",
+        project_name: str = "underscore-edge-model-pipeline",
         experiment_name: str | None = None,
         output_dir: str | Path = "outputs",
         max_epochs: int = 100,
@@ -154,9 +154,9 @@ def train_model(
     Returns:
         Tuple of (trained model, trainer)
     """
-    from nilm_research.models.atcn import ATCNModel
-    from nilm_research.models.lstm import LSTMModel
-    from nilm_research.models.tcn import TCNModel
+    from edge_pipeline.models.atcn import ATCNModel
+    from edge_pipeline.models.lstm import LSTMModel
+    from edge_pipeline.models.tcn import TCNModel
 
     # Create model
     model_classes = {

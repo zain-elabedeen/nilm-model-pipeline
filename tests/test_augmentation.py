@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from nilm_research.data.augmentation import (
+from edge_pipeline.data.augmentation import (
     AMDATransform,
     ComposeTransforms,
     GaussianNoiseTransform,

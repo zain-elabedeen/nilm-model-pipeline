@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 
-from nilm_research.models.base import NilmModel
+from edge_pipeline.models.base import NilmModel
 
 
 class LSTMModel(NilmModel):

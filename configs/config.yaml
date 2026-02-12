@@ -1,4 +1,4 @@
-# Root Hydra configuration for NILM training
+# Root Hydra configuration for edge model training
 
 defaults:
   - model: tcn
@@ -23,7 +23,7 @@ training:
 logging:
   use_wandb: true
   wandb_offline: false
-  project_name: nilm-research
+  project_name: underscore-edge-model-pipeline
   log_every_n_steps: 10
 
 # Hydra configuration

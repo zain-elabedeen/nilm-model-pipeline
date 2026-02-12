@@ -2,7 +2,7 @@
 name: sided
 
 # Data location
-data_dir: ~/.cache/nilm-research/sided
+data_dir: ~/.cache/edge-pipeline/sided
 
 # Window configuration
 window_size: 60  # 1 hour at 1-minute resolution

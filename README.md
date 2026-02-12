@@ -1,4 +1,4 @@
-# NILM Research
+# Underscore Edge Model Pipeline
 
 Trains disaggregation models for identifying what's consuming and generating power from a single meter reading.
 
