@@ -21,7 +21,7 @@ class OnnxExporter:
     Ensures compatibility with the Rust production system using tract-onnx.
     Key requirements:
     - Input: [1, 60] float32 (1-minute resolution, 60-minute window)
-    - Output: [1, 5] float32 (EVSE, PV, CS, CHP, BA)
+    - Output: [1, 5] float32 (Battery, Solar, Cooling, Generator, Base Load)
     - Opset version: 17 (tract-onnx compatible)
     """
 
@@ -93,7 +93,7 @@ class OnnxExporter:
             "model_type": self.model.__class__.__name__,
             "window_size": window_size,
             "num_appliances": self.model.num_appliances,
-            "appliances": ["EVSE", "PV", "CS", "CHP", "BA"],
+            "appliances": ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"],
             "version": "1.0.0",
         }
 

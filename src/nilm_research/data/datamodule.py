@@ -179,39 +179,42 @@ class NilmDataModule(pl.LightningDataModule):
         n_samples = 7 * 24 * 60
         timestamps = pd.date_range("2024-01-01", periods=n_samples, freq="1min")
 
-        # Generate realistic-ish patterns
+        # Generate realistic-ish patterns for emerging market factory
         t = np.arange(n_samples)
         hour_of_day = (t % (24 * 60)) / 60
 
-        # Base load with daily pattern
-        ba = 3000 + 1000 * np.sin(2 * np.pi * hour_of_day / 24) + np.random.normal(0, 200, n_samples)
+        # Battery: charge during solar hours, discharge during evening peak
+        battery = np.zeros(n_samples)
+        solar_mask = (hour_of_day >= 10) & (hour_of_day < 15)
+        battery[solar_mask] = 15000 + np.random.normal(0, 2000, solar_mask.sum())
+        peak_mask = (hour_of_day >= 17) & (hour_of_day < 21)
+        battery[peak_mask] = -(12000 + np.random.normal(0, 2000, peak_mask.sum()))
 
-        # Cooling with daytime peak
-        cs = np.maximum(
+        # Solar with solar pattern (negative = generation)
+        solar = -np.maximum(
             0,
-            8000 * np.exp(-((hour_of_day - 14) ** 2) / 20) + np.random.normal(0, 500, n_samples),
+            40000 * np.exp(-((hour_of_day - 12) ** 2) / 8) + np.random.normal(0, 2000, n_samples),
         )
 
-        # PV with solar pattern (negative = generation)
-        pv = -np.maximum(
+        # Cooling with daytime peak (tropical climate, higher baseline)
+        cooling = np.maximum(
             0,
-            20000 * np.exp(-((hour_of_day - 12) ** 2) / 8) + np.random.normal(0, 1000, n_samples),
+            20000 * np.exp(-((hour_of_day - 14) ** 2) / 20) + 5000 + np.random.normal(0, 1000, n_samples),
         )
 
-        # EVSE with random charging events
-        evse = np.zeros(n_samples)
-        for _ in range(20):  # 20 charging events per week
-            start = np.random.randint(0, n_samples - 120)
-            duration = np.random.randint(30, 120)
-            power = np.random.uniform(3000, 22000)
-            evse[start : start + duration] = power
+        # Generator: grid outage simulation
+        generator = np.zeros(n_samples)
+        for _ in range(5):  # ~5 outage events per week
+            start = np.random.randint(0, n_samples - 240)
+            duration = np.random.randint(60, 240)
+            power = np.random.uniform(50000, 150000)
+            generator[start : start + duration] = -power
 
-        # CHP (mostly off, occasional generation)
-        chp = np.zeros(n_samples)
-        if np.random.random() > 0.5:
-            chp = -np.random.uniform(2000, 8000) * np.ones(n_samples)
+        # Base load: factory production machinery (3-shift pattern)
+        base_load = 40000 + 20000 * np.sin(2 * np.pi * hour_of_day / 24) + np.random.normal(0, 3000, n_samples)
+        base_load = np.maximum(base_load, 10000)  # Always some standby load
 
-        appliances = np.column_stack([evse, pv, cs, chp, ba]).astype(np.float32)
+        appliances = np.column_stack([battery, solar, cooling, generator, base_load]).astype(np.float32)
         aggregate = appliances.sum(axis=1).astype(np.float32)
 
         return FacilityData(

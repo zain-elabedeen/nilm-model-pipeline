@@ -16,10 +16,10 @@ class NilmModel(pl.LightningModule, ABC):
     Abstract base class for NILM sequence-to-point models.
 
     All models take input shape (batch, window_size) and output (batch, 5)
-    for the 5 appliance types: EVSE, PV, CS, CHP, BA.
+    for the 5 appliance types: Battery, Solar, Cooling, Generator, Base Load.
     """
 
-    APPLIANCE_NAMES = ["EVSE", "PV", "CS", "CHP", "BA"]
+    APPLIANCE_NAMES = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
 
     def __init__(
         self,

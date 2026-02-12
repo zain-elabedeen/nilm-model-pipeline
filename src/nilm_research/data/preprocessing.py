@@ -46,11 +46,11 @@ DEFAULT_INPUT_PARAMS = NormalisationParams(
 )
 
 DEFAULT_OUTPUT_PARAMS = {
-    "EVSE": NormalisationParams(mean=5_000.0, std=5_000.0, min_val=0.0, max_val=22_000.0),
-    "PV": NormalisationParams(mean=-15_000.0, std=15_000.0, min_val=-50_000.0, max_val=0.0),
-    "CS": NormalisationParams(mean=10_000.0, std=8_000.0, min_val=0.0, max_val=30_000.0),
-    "CHP": NormalisationParams(mean=-5_000.0, std=8_000.0, min_val=-20_000.0, max_val=5_000.0),
-    "BA": NormalisationParams(mean=3_000.0, std=2_000.0, min_val=0.0, max_val=10_000.0),
+    "BATTERY": NormalisationParams(mean=0.0, std=15_000.0, min_val=-50_000.0, max_val=50_000.0),
+    "SOLAR": NormalisationParams(mean=-20_000.0, std=20_000.0, min_val=-100_000.0, max_val=0.0),
+    "COOLING": NormalisationParams(mean=20_000.0, std=20_000.0, min_val=0.0, max_val=100_000.0),
+    "GENERATOR": NormalisationParams(mean=-50_000.0, std=80_000.0, min_val=-500_000.0, max_val=0.0),
+    "BASE_LOAD": NormalisationParams(mean=40_000.0, std=30_000.0, min_val=0.0, max_val=200_000.0),
 }
 
 
@@ -224,7 +224,7 @@ class WindowGenerator:
                 inputs = self.input_normaliser.transform(inputs)
 
             if self.output_normalisers is not None:
-                appliance_names = ["EVSE", "PV", "CS", "CHP", "BA"]
+                appliance_names = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
                 for j, name in enumerate(appliance_names):
                     if name in self.output_normalisers:
                         targets[:, j] = self.output_normalisers[name].transform(targets[:, j])
@@ -245,7 +245,7 @@ class WindowGenerator:
 
         self.input_normaliser.fit(aggregate)
 
-        appliance_names = ["EVSE", "PV", "CS", "CHP", "BA"]
+        appliance_names = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
         self.output_normalisers = {}
 
         for j, name in enumerate(appliance_names):

@@ -132,6 +132,7 @@ def train_model(
     learning_rate: float = 1e-3,
     use_amda: bool = True,
     amda_scale: float = 2.5,
+    num_workers: int = 4,
     output_dir: str = "outputs",
     use_wandb: bool = True,
 ) -> tuple[NilmModel, NilmTrainer]:
@@ -146,6 +147,7 @@ def train_model(
         learning_rate: Learning rate
         use_amda: Whether to use AMDA augmentation
         amda_scale: AMDA scaling factor
+        num_workers: DataLoader workers (reduce to 2 on Colab)
         output_dir: Output directory
         use_wandb: Whether to use W&B logging
 
@@ -173,6 +175,7 @@ def train_model(
     datamodule = NilmDataModule(
         window_size=window_size,
         batch_size=batch_size,
+        num_workers=num_workers,
         use_amda=use_amda,
         amda_scale=amda_scale,
     )

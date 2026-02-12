@@ -1,74 +1,10 @@
 #!/usr/bin/env python
-"""Evaluation script for trained NILM models."""
+"""CLI wrapper for evaluating trained NILM models."""
 
 import argparse
-from pathlib import Path
-
-import numpy as np
-import torch
 
 from nilm_research.data.datamodule import NilmDataModule
-from nilm_research.evaluation.metrics import NilmMetrics, compute_metrics_numpy
-from nilm_research.models.atcn import ATCNModel
-from nilm_research.models.lstm import LSTMModel
-from nilm_research.models.tcn import TCNModel
-
-
-APPLIANCE_NAMES = ["EVSE", "PV", "CS", "CHP", "BA"]
-
-
-def load_model(checkpoint_path: str, model_type: str):
-    """Load model from checkpoint."""
-    model_classes = {
-        "lstm": LSTMModel,
-        "tcn": TCNModel,
-        "atcn": ATCNModel,
-    }
-
-    if model_type not in model_classes:
-        raise ValueError(f"Unknown model type: {model_type}")
-
-    model = model_classes[model_type].load_from_checkpoint(checkpoint_path)
-    model.eval()
-    return model
-
-
-def evaluate_model(
-    model,
-    datamodule: NilmDataModule,
-    device: str = "cpu",
-) -> dict:
-    """Evaluate model on test set."""
-    model.to(device)
-    model.eval()
-
-    all_preds = []
-    all_targets = []
-
-    test_loader = datamodule.test_dataloader()
-
-    with torch.no_grad():
-        for batch in test_loader:
-            x, y = batch
-            x = x.to(device)
-            y_pred = model(x).cpu().numpy()
-            all_preds.append(y_pred)
-            all_targets.append(y.numpy())
-
-    preds = np.concatenate(all_preds, axis=0)
-    targets = np.concatenate(all_targets, axis=0)
-
-    # Overall metrics
-    results = compute_metrics_numpy(preds, targets)
-
-    # Per-appliance metrics
-    for i, name in enumerate(APPLIANCE_NAMES):
-        appliance_metrics = compute_metrics_numpy(preds[:, i], targets[:, i])
-        results[f"{name}_mae"] = appliance_metrics["mae"]
-        results[f"{name}_mse"] = appliance_metrics["mse"]
-        results[f"{name}_r2"] = appliance_metrics["r2"]
-
-    return results
+from nilm_research.evaluation.evaluate import APPLIANCE_NAMES, evaluate_model, load_model
 
 
 def main():

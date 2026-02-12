@@ -36,6 +36,8 @@ pip install -e ".[dev]"
 
 ## Training
 
+To train on Google Colab without any local setup, use the notebook at `notebooks/colab_training.ipynb`.
+
 ```bash
 # Default (TCN + AMDA augmentation)
 python scripts/train.py

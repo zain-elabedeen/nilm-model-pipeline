@@ -1,6 +1,7 @@
 """SIDED dataset loader.
 
-Loads the Synthetic Industrial Dataset for Energy Disaggregation from GitHub.
+Loads the Synthetic Industrial Dataset for Energy Disaggregation from GitHub
+and maps SIDED categories to Underscore appliance types.
 """
 
 from dataclasses import dataclass
@@ -16,18 +17,32 @@ from tqdm import tqdm
 # SIDED GitHub repository
 SIDED_REPO_URL = "https://raw.githubusercontent.com/siemens/SIDED/main/data"
 
-# Appliance types in standard order (matches Rust inference.rs)
-APPLIANCE_ORDER = ["EVSE", "PV", "CS", "CHP", "BA"]
+# Underscore appliance types in standard order (matches Rust inference.rs)
+APPLIANCE_ORDER = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
+
+# Mapping from SIDED CSV column names to Underscore categories.
+# This is an imperfect mapping — diesel generators behave nothing like CHP,
+# batteries aren't EV chargers — but gets the pipeline working end-to-end.
+SIDED_TO_UNDERSCORE = {
+    "EVSE": "BATTERY",
+    "PV": "SOLAR",
+    "CS": "COOLING",
+    "CHP": "GENERATOR",
+    "BA": "BASE_LOAD",
+}
+
+# SIDED CSV column names (used when reading raw data files)
+SIDED_COLUMN_ORDER = ["EVSE", "PV", "CS", "CHP", "BA"]
 
 
 class ApplianceType(Enum):
-    """Appliance types as defined in the SIDED paper."""
+    """Underscore appliance types for industrial NILM."""
 
-    EVSE = 0  # Electric Vehicle Supply Equipment
-    PV = 1  # Photovoltaic (generation, typically negative)
-    CS = 2  # Cooling Systems
-    CHP = 3  # Combined Heat and Power
-    BA = 4  # Base Appliances
+    BATTERY = 0    # Battery storage (charge/discharge, bidirectional)
+    SOLAR = 1      # Solar PV generation
+    COOLING = 2    # Cooling systems (HVAC, refrigeration)
+    GENERATOR = 3  # Diesel/gas generator
+    BASE_LOAD = 4  # Factory production machinery + misc
 
 
 @dataclass
@@ -74,7 +89,7 @@ class SidedLoader:
         return local_path
 
     def load_facility(self, facility_id: str) -> FacilityData:
-        """Load data for a single facility."""
+        """Load data for a single facility, mapping SIDED columns to Underscore types."""
         filename = f"facility_{facility_id}.csv"
         filepath = self._download_file(filename)
 
@@ -83,8 +98,9 @@ class SidedLoader:
         # Extract aggregate and appliance columns
         aggregate = df["aggregate"].values.astype(np.float32)
 
+        # Read SIDED columns in their original order, which maps 1:1 to Underscore order
         appliances = np.column_stack([
-            df[appliance].values.astype(np.float32) for appliance in APPLIANCE_ORDER
+            df[col].values.astype(np.float32) for col in SIDED_COLUMN_ORDER
         ])
 
         return FacilityData(
@@ -120,15 +136,6 @@ class SidedDataset:
         stride: int = 1,
         target_resolution_minutes: int = 1,
     ):
-        """
-        Initialise the dataset.
-
-        Args:
-            facilities: List of facility data objects
-            window_size: Number of timesteps per window (default 60 for 1 hour at 1-min res)
-            stride: Step size between windows
-            target_resolution_minutes: Target resolution (1 for production compatibility)
-        """
         self.window_size = window_size
         self.stride = stride
         self.target_resolution_minutes = target_resolution_minutes
