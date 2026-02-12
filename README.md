@@ -6,7 +6,7 @@ Trains disaggregation models for identifying what's consuming and generating pow
 
 **Measure** → Model (this) → Orchestrate → Trade
 
-This repository trains PyTorch models on the [SIDED dataset](https://github.com/ChristianInterno/SIDED) and exports ONNX models for deployment in the [Edge Runtime](https://github.com/underscoreHQ/underscore-edge-runtime) daemon.
+This repository trains PyTorch models on the [SIDED dataset](https://huggingface.co/datasets/CInterno/Synthetic_Industrial_Dataset_For_Energy_Disaggregation_SIDED) and exports ONNX models for deployment in the [Edge Runtime](https://github.com/underscoreHQ/underscore-edge-runtime) daemon.
 
 ## What it produces
 

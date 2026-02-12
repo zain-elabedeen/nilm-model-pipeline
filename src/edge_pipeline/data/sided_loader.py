@@ -1,7 +1,7 @@
 """SIDED dataset loader.
 
-Loads the Synthetic Industrial Dataset for Energy Disaggregation from GitHub
-and maps SIDED categories to Underscore appliance types.
+Loads the Synthetic Industrial Dataset for Energy Disaggregation from
+Hugging Face and maps SIDED categories to Underscore appliance types.
 """
 
 from dataclasses import dataclass
@@ -11,11 +11,10 @@ from typing import Iterator
 
 import numpy as np
 import pandas as pd
-import requests
 from tqdm import tqdm
 
-# SIDED GitHub repository
-SIDED_REPO_URL = "https://raw.githubusercontent.com/siemens/SIDED/main/data"
+# Hugging Face dataset identifier
+DATASET_ID = "CInterno/Synthetic_Industrial_Dataset_For_Energy_Disaggregation_SIDED"
 
 # Underscore appliance types in standard order (matches Rust inference.rs)
 APPLIANCE_ORDER = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
@@ -53,7 +52,7 @@ class FacilityData:
     aggregate: np.ndarray  # Shape: (timesteps,)
     appliances: np.ndarray  # Shape: (timesteps, 5)
     timestamps: pd.DatetimeIndex
-    resolution_minutes: int = 5  # SIDED uses 5-minute resolution
+    resolution_minutes: int = 1  # SIDED Hugging Face dataset uses 1-minute resolution
 
     def __len__(self) -> int:
         return len(self.aggregate)
@@ -64,7 +63,7 @@ class FacilityData:
 
 
 class SidedLoader:
-    """Loads SIDED dataset from GitHub or local cache."""
+    """Loads SIDED dataset from Hugging Face."""
 
     def __init__(
         self,
@@ -72,49 +71,65 @@ class SidedLoader:
         force_download: bool = False,
     ):
         self.cache_dir = Path(cache_dir).expanduser()
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.force_download = force_download
+        self._facilities: dict[str, FacilityData] | None = None
 
-    def _download_file(self, filename: str) -> Path:
-        """Download a file from the SIDED repository."""
-        local_path = self.cache_dir / filename
-        if local_path.exists() and not self.force_download:
-            return local_path
+    def _load_hf_dataset(self) -> None:
+        """Load the full dataset from Hugging Face and split into facilities."""
+        from datasets import load_dataset
 
-        url = f"{SIDED_REPO_URL}/{filename}"
-        response = requests.get(url, timeout=60)
-        response.raise_for_status()
+        download_mode = "force_redownload" if self.force_download else None
+        ds = load_dataset(
+            DATASET_ID,
+            split="train",
+            cache_dir=str(self.cache_dir),
+            download_mode=download_mode,
+        )
+        df = ds.to_pandas()
 
-        local_path.write_bytes(response.content)
-        return local_path
+        # Split into individual facilities by detecting timestamp resets
+        # (each facility is one year of data; timestamps jump backwards at boundaries)
+        times = df["Time"].values
+        diffs = np.diff(times)
+        boundary_indices = np.where(diffs < 0)[0] + 1
+        boundaries = [0] + boundary_indices.tolist() + [len(df)]
+
+        self._facilities = {}
+        for i in range(len(boundaries) - 1):
+            facility_id = f"F{i + 1:02d}"
+            chunk = df.iloc[boundaries[i] : boundaries[i + 1]]
+
+            timestamps = pd.to_datetime(chunk["Time"], unit="s")
+            aggregate = chunk["Aggregate"].values.astype(np.float32)
+            appliances = np.column_stack([
+                chunk[col].values.astype(np.float32) for col in SIDED_COLUMN_ORDER
+            ])
+
+            self._facilities[facility_id] = FacilityData(
+                facility_id=facility_id,
+                aggregate=aggregate,
+                appliances=appliances,
+                timestamps=pd.DatetimeIndex(timestamps),
+            )
 
     def load_facility(self, facility_id: str) -> FacilityData:
         """Load data for a single facility, mapping SIDED columns to Underscore types."""
-        filename = f"facility_{facility_id}.csv"
-        filepath = self._download_file(filename)
-
-        df = pd.read_csv(filepath, parse_dates=["timestamp"], index_col="timestamp")
-
-        # Extract aggregate and appliance columns
-        aggregate = df["aggregate"].values.astype(np.float32)
-
-        # Read SIDED columns in their original order, which maps 1:1 to Underscore order
-        appliances = np.column_stack([
-            df[col].values.astype(np.float32) for col in SIDED_COLUMN_ORDER
-        ])
-
-        return FacilityData(
-            facility_id=facility_id,
-            aggregate=aggregate,
-            appliances=appliances,
-            timestamps=df.index,
-        )
+        if self._facilities is None:
+            self._load_hf_dataset()
+        if facility_id not in self._facilities:
+            available = sorted(self._facilities.keys())
+            raise ValueError(
+                f"Facility {facility_id} not found. Available: {available}"
+            )
+        return self._facilities[facility_id]
 
     def load_all(self, facility_ids: list[str] | None = None) -> list[FacilityData]:
         """Load data for multiple facilities."""
+        if self._facilities is None:
+            self._load_hf_dataset()
+
         if facility_ids is None:
-            # Default SIDED facilities
-            facility_ids = [f"F{i:02d}" for i in range(1, 11)]
+            facility_ids = sorted(self._facilities.keys())
 
         facilities = []
         for fid in tqdm(facility_ids, desc="Loading facilities"):

@@ -20,14 +20,13 @@ train_facilities:
   - F04
   - F05
   - F06
-  - F07
 
 val_facilities:
-  - F08
+  - F07
 
 test_facilities:
+  - F08
   - F09
-  - F10
 
 # Preprocessing
 use_robust_scaling: true

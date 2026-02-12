@@ -97,9 +97,9 @@ class NilmDataModule(pl.LightningDataModule):
         self.use_robust_scaling = use_robust_scaling
 
         # Default facility splits
-        self.train_facilities = train_facilities or [f"F{i:02d}" for i in range(1, 8)]
-        self.val_facilities = val_facilities or ["F08"]
-        self.test_facilities = test_facilities or ["F09", "F10"]
+        self.train_facilities = train_facilities or [f"F{i:02d}" for i in range(1, 7)]
+        self.val_facilities = val_facilities or ["F07"]
+        self.test_facilities = test_facilities or ["F08", "F09"]
 
         self.window_generator: WindowGenerator | None = None
         self.train_dataset: NilmTorchDataset | None = None
