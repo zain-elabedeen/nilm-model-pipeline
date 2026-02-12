@@ -113,7 +113,7 @@ class TestGaussianNoiseTransform:
         np.random.seed(42)
         noise = GaussianNoiseTransform(std_ratio=0.02, probability=1.0)
 
-        aggregate = np.ones((60,), dtype=np.float32) * 10000
+        aggregate = (np.arange(60, dtype=np.float32) * 100 + 5000)
         appliances = np.ones((5,), dtype=np.float32) * 2000
 
         aug_agg, aug_app = noise(aggregate, appliances)

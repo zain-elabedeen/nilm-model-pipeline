@@ -83,6 +83,7 @@ class OnnxExporter:
             opset_version=self.OPSET_VERSION,
             do_constant_folding=True,
             export_params=True,
+            dynamo=False,
         )
 
         # Add metadata to ONNX model
