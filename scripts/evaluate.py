@@ -4,7 +4,7 @@
 import argparse
 
 from edge_pipeline.data.datamodule import NilmDataModule
-from edge_pipeline.evaluation.evaluate import APPLIANCE_NAMES, evaluate_model, load_model
+from edge_pipeline.evaluation.evaluate import evaluate_model, load_model
 
 
 def main():
@@ -56,9 +56,15 @@ def main():
     print(f"  R²:   {results['r2']:.4f}")
     print(f"  NDE:  {results['nde']:.4f}")
 
+    appliance_names = getattr(
+        model, "appliance_names",
+        ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"],
+    )
     print(f"\nPer-Appliance MAE:")
-    for name in APPLIANCE_NAMES:
-        print(f"  {name}: {results[f'{name}_mae']:.4f}")
+    for name in appliance_names:
+        key = f"{name}_mae"
+        if key in results:
+            print(f"  {name}: {results[key]:.4f}")
 
     # Save results
     if args.output:

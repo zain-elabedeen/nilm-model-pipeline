@@ -180,3 +180,37 @@ class TestWindowGenerator:
         assert "mean" in metadata["input"]
         assert "std" in metadata["input"]
         assert len(metadata["outputs"]) == 5
+
+    def test_custom_appliance_names(self):
+        """Test WindowGenerator with custom appliance names."""
+        names = ["HVAC", "LIGHTING", "MOTORS"]
+        generator = WindowGenerator(
+            window_size=5,
+            stride=1,
+            appliance_names=names,
+        )
+
+        aggregate = np.random.randn(20).astype(np.float32) * 1000
+        appliances = np.random.randn(20, 3).astype(np.float32) * 500
+
+        generator.fit_normalisers(aggregate, appliances, use_robust=True)
+
+        assert len(generator.output_normalisers) == 3
+        assert set(generator.output_normalisers.keys()) == {"HVAC", "LIGHTING", "MOTORS"}
+
+        inputs, targets = generator.generate_windows(aggregate, appliances)
+
+        assert targets.shape[1] == 3
+
+    def test_appliance_names_mismatch_raises(self):
+        """Test that mismatched appliance_names and data shape raises."""
+        generator = WindowGenerator(
+            window_size=5,
+            appliance_names=["A", "B"],
+        )
+
+        aggregate = np.random.randn(20).astype(np.float32)
+        appliances = np.random.randn(20, 3).astype(np.float32)
+
+        with pytest.raises(ValueError, match="appliance_names has 2 entries"):
+            generator.fit_normalisers(aggregate, appliances)

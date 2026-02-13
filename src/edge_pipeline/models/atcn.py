@@ -122,6 +122,7 @@ class ATCNModel(NilmModel):
         learning_rate: float = 1e-3,
         weight_decay: float = 1e-5,
         max_epochs: int = 100,
+        appliance_names: list[str] | None = None,
     ):
         super().__init__(
             window_size=window_size,
@@ -129,6 +130,7 @@ class ATCNModel(NilmModel):
             learning_rate=learning_rate,
             weight_decay=weight_decay,
             max_epochs=max_epochs,
+            appliance_names=appliance_names,
         )
         self.save_hyperparameters()
 
@@ -174,7 +176,7 @@ class ATCNModel(NilmModel):
             nn.Linear(num_channels, num_channels),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(num_channels, num_appliances),
+            nn.Linear(num_channels, self.num_appliances),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -229,6 +231,7 @@ class ATCNModelLite(NilmModel):
         learning_rate: float = 1e-3,
         weight_decay: float = 1e-5,
         max_epochs: int = 100,
+        appliance_names: list[str] | None = None,
     ):
         super().__init__(
             window_size=window_size,
@@ -236,6 +239,7 @@ class ATCNModelLite(NilmModel):
             learning_rate=learning_rate,
             weight_decay=weight_decay,
             max_epochs=max_epochs,
+            appliance_names=appliance_names,
         )
         self.save_hyperparameters()
 
@@ -269,7 +273,7 @@ class ATCNModelLite(NilmModel):
             nn.Linear(num_channels, num_channels),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(num_channels, num_appliances),
+            nn.Linear(num_channels, self.num_appliances),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

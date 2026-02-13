@@ -8,9 +8,9 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from edge_pipeline.data.augmentation import AMDATransform, ComposeTransforms
+from edge_pipeline.data.augmentation import AMDATransform
+from edge_pipeline.data.base import FacilityData, NilmDatasetLoader
 from edge_pipeline.data.preprocessing import WindowGenerator
-from edge_pipeline.data.sided_loader import FacilityData, SidedLoader
 
 
 class NilmTorchDataset(Dataset):
@@ -27,7 +27,7 @@ class NilmTorchDataset(Dataset):
 
         Args:
             inputs: Shape (n_samples, window_size)
-            targets: Shape (n_samples, 5)
+            targets: Shape (n_samples, num_appliances)
             transform: Optional augmentation transform
         """
         self.inputs = torch.from_numpy(inputs).float()
@@ -56,11 +56,15 @@ class NilmDataModule(pl.LightningDataModule):
 
     def __init__(
         self,
+        loader: NilmDatasetLoader | None = None,
         data_dir: str | Path = "~/.cache/edge-pipeline/sided",
         window_size: int = 60,
         stride: int = 1,
         batch_size: int = 256,
         num_workers: int = 4,
+        train_sites: list[str] | None = None,
+        val_sites: list[str] | None = None,
+        test_sites: list[str] | None = None,
         train_facilities: list[str] | None = None,
         val_facilities: list[str] | None = None,
         test_facilities: list[str] | None = None,
@@ -72,20 +76,31 @@ class NilmDataModule(pl.LightningDataModule):
         Initialise DataModule.
 
         Args:
-            data_dir: Directory to cache SIDED data
+            loader: Dataset loader. If None, creates a SidedLoader using data_dir.
+            data_dir: Directory to cache SIDED data (used when loader is None)
             window_size: Samples per window (60 = 1 hour at 1-min resolution)
             stride: Step between windows
             batch_size: Training batch size
             num_workers: DataLoader workers
-            train_facilities: Facility IDs for training (default: F01-F07)
-            val_facilities: Facility IDs for validation (default: F08)
-            test_facilities: Facility IDs for testing (default: F09-F10)
+            train_sites: Site IDs for training (alias: train_facilities)
+            val_sites: Site IDs for validation (alias: val_facilities)
+            test_sites: Site IDs for testing (alias: test_facilities)
+            train_facilities: Legacy alias for train_sites
+            val_facilities: Legacy alias for val_sites
+            test_facilities: Legacy alias for test_sites
             use_amda: Whether to apply AMDA augmentation
             amda_scale: AMDA base scaling factor
             use_robust_scaling: Use robust (median/IQR) vs standard scaling
         """
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["loader"])
+
+        # Create loader if not provided
+        if loader is not None:
+            self._loader = loader
+        else:
+            from edge_pipeline.data.sided_loader import SidedLoader
+            self._loader = SidedLoader(cache_dir=data_dir)
 
         self.data_dir = Path(data_dir).expanduser()
         self.window_size = window_size
@@ -96,34 +111,58 @@ class NilmDataModule(pl.LightningDataModule):
         self.amda_scale = amda_scale
         self.use_robust_scaling = use_robust_scaling
 
-        # Default facility splits
-        self.train_facilities = train_facilities or [f"F{i:02d}" for i in range(1, 7)]
-        self.val_facilities = val_facilities or ["F07"]
-        self.test_facilities = test_facilities or ["F08", "F09"]
+        # Resolve site splits (new names take precedence over legacy aliases)
+        self.train_sites = train_sites or train_facilities
+        self.val_sites = val_sites or val_facilities
+        self.test_sites = test_sites or test_facilities
+
+        # Auto-split if no explicit splits given
+        if self.train_sites is None and self.val_sites is None and self.test_sites is None:
+            self._auto_split()
 
         self.window_generator: WindowGenerator | None = None
         self.train_dataset: NilmTorchDataset | None = None
         self.val_dataset: NilmTorchDataset | None = None
         self.test_dataset: NilmTorchDataset | None = None
 
+    def _auto_split(self) -> None:
+        """Split available sites 70/15/15 when no explicit splits are given."""
+        sites = self._loader.available_sites()
+        n = len(sites)
+        n_train = max(1, int(n * 0.7))
+        n_val = max(1, int(n * 0.15))
+
+        self.train_sites = sites[:n_train]
+        self.val_sites = sites[n_train:n_train + n_val]
+        self.test_sites = sites[n_train + n_val:]
+
+        # Ensure test has at least one site
+        if not self.test_sites:
+            self.test_sites = [self.val_sites[-1]]
+
+    @property
+    def appliance_names(self) -> list[str]:
+        return self._loader.appliance_names
+
+    @property
+    def num_appliances(self) -> int:
+        return len(self.appliance_names)
+
     def prepare_data(self) -> None:
         """Download data if needed."""
-        loader = SidedLoader(cache_dir=self.data_dir)
-        all_facilities = self.train_facilities + self.val_facilities + self.test_facilities
-        for fid in all_facilities:
+        all_sites = (self.train_sites or []) + (self.val_sites or []) + (self.test_sites or [])
+        for sid in all_sites:
             try:
-                loader.load_facility(fid)
+                self._loader.load_site(sid)
             except Exception:
                 pass  # Will handle in setup
 
     def setup(self, stage: str | None = None) -> None:
         """Set up datasets for training/validation/testing."""
-        loader = SidedLoader(cache_dir=self.data_dir)
-
-        # Load facility data
-        train_data = self._load_facilities(loader, self.train_facilities)
-        val_data = self._load_facilities(loader, self.val_facilities)
-        test_data = self._load_facilities(loader, self.test_facilities)
+        # Load site data
+        train_data = [self._loader.load_site(sid) for sid in self.train_sites]
+        val_data = [self._loader.load_site(sid) for sid in self.val_sites]
+        test_data = [self._loader.load_site(sid) for sid in self.test_sites]
 
         # Combine training data for fitting normalisers
         train_agg = np.concatenate([f.aggregate for f in train_data])
@@ -133,6 +172,7 @@ class NilmDataModule(pl.LightningDataModule):
         self.window_generator = WindowGenerator(
             window_size=self.window_size,
             stride=self.stride,
+            appliance_names=self.appliance_names,
         )
         self.window_generator.fit_normalisers(
             train_agg, train_app, use_robust=self.use_robust_scaling
@@ -157,73 +197,6 @@ class NilmDataModule(pl.LightningDataModule):
         )
         self.val_dataset = NilmTorchDataset(val_inputs, val_targets)
         self.test_dataset = NilmTorchDataset(test_inputs, test_targets)
-
-    def _load_facilities(
-        self, loader: SidedLoader, facility_ids: list[str]
-    ) -> list[FacilityData]:
-        """Load facilities, generating synthetic data if download fails."""
-        facilities = []
-        for fid in facility_ids:
-            try:
-                facilities.append(loader.load_facility(fid))
-            except Exception:
-                # Generate synthetic data for testing/development
-                facilities.append(self._generate_synthetic_facility(fid))
-        return facilities
-
-    def _generate_synthetic_facility(self, facility_id: str) -> FacilityData:
-        """Generate synthetic facility data for development."""
-        import pandas as pd
-
-        # 7 days at 1-minute resolution
-        n_samples = 7 * 24 * 60
-        timestamps = pd.date_range("2024-01-01", periods=n_samples, freq="1min")
-
-        # Generate realistic-ish patterns for emerging market factory
-        t = np.arange(n_samples)
-        hour_of_day = (t % (24 * 60)) / 60
-
-        # Battery: charge during solar hours, discharge during evening peak
-        battery = np.zeros(n_samples)
-        solar_mask = (hour_of_day >= 10) & (hour_of_day < 15)
-        battery[solar_mask] = 15000 + np.random.normal(0, 2000, solar_mask.sum())
-        peak_mask = (hour_of_day >= 17) & (hour_of_day < 21)
-        battery[peak_mask] = -(12000 + np.random.normal(0, 2000, peak_mask.sum()))
-
-        # Solar with solar pattern (negative = generation)
-        solar = -np.maximum(
-            0,
-            40000 * np.exp(-((hour_of_day - 12) ** 2) / 8) + np.random.normal(0, 2000, n_samples),
-        )
-
-        # Cooling with daytime peak (tropical climate, higher baseline)
-        cooling = np.maximum(
-            0,
-            20000 * np.exp(-((hour_of_day - 14) ** 2) / 20) + 5000 + np.random.normal(0, 1000, n_samples),
-        )
-
-        # Generator: grid outage simulation
-        generator = np.zeros(n_samples)
-        for _ in range(5):  # ~5 outage events per week
-            start = np.random.randint(0, n_samples - 240)
-            duration = np.random.randint(60, 240)
-            power = np.random.uniform(50000, 150000)
-            generator[start : start + duration] = -power
-
-        # Base load: factory production machinery (3-shift pattern)
-        base_load = 40000 + 20000 * np.sin(2 * np.pi * hour_of_day / 24) + np.random.normal(0, 3000, n_samples)
-        base_load = np.maximum(base_load, 10000)  # Always some standby load
-
-        appliances = np.column_stack([battery, solar, cooling, generator, base_load]).astype(np.float32)
-        aggregate = appliances.sum(axis=1).astype(np.float32)
-
-        return FacilityData(
-            facility_id=facility_id,
-            aggregate=aggregate,
-            appliances=appliances,
-            timestamps=timestamps,
-            resolution_minutes=1,
-        )
 
     def _generate_all_windows(
         self, facilities: list[FacilityData]

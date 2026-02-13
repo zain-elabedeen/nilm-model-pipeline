@@ -94,7 +94,10 @@ class OnnxExporter:
             "model_type": self.model.__class__.__name__,
             "window_size": window_size,
             "num_appliances": self.model.num_appliances,
-            "appliances": ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"],
+            "appliances": getattr(
+                self.model, "appliance_names",
+                ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"],
+            ),
             "version": "1.0.0",
         }
 

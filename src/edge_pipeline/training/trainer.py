@@ -1,7 +1,12 @@
 """Training utilities for NILM models."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from edge_pipeline.data.base import NilmDatasetLoader
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import (
@@ -135,6 +140,7 @@ def train_model(
     num_workers: int = 4,
     output_dir: str = "outputs",
     use_wandb: bool = True,
+    loader: NilmDatasetLoader | None = None,
 ) -> tuple[NilmModel, NilmTrainer]:
     """
     Convenience function to train a NILM model.
@@ -150,6 +156,7 @@ def train_model(
         num_workers: DataLoader workers (reduce to 2 on Colab)
         output_dir: Output directory
         use_wandb: Whether to use W&B logging
+        loader: Optional dataset loader. If None, uses SIDED.
 
     Returns:
         Tuple of (trained model, trainer)
@@ -157,6 +164,16 @@ def train_model(
     from edge_pipeline.models.atcn import ATCNModel
     from edge_pipeline.models.lstm import LSTMModel
     from edge_pipeline.models.tcn import TCNModel
+
+    # Create datamodule
+    datamodule = NilmDataModule(
+        loader=loader,
+        window_size=window_size,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        use_amda=use_amda,
+        amda_scale=amda_scale,
+    )
 
     # Create model
     model_classes = {
@@ -169,15 +186,7 @@ def train_model(
         window_size=window_size,
         learning_rate=learning_rate,
         max_epochs=max_epochs,
-    )
-
-    # Create datamodule
-    datamodule = NilmDataModule(
-        window_size=window_size,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        use_amda=use_amda,
-        amda_scale=amda_scale,
+        appliance_names=datamodule.appliance_names,
     )
 
     # Create trainer

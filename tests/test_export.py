@@ -167,6 +167,43 @@ class TestOnnxExporter:
             ]
             assert output_shape == [1, 5]
 
+    def test_custom_appliance_names_in_metadata(self):
+        """Test that custom appliance names appear in ONNX metadata."""
+        model = TCNModel(
+            window_size=60,
+            num_channels=16,
+            num_layers=2,
+            appliance_names=["SOLAR", "WIND", "STORAGE"],
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            exporter = OnnxExporter(
+                model=model,
+                output_dir=tmpdir,
+                model_name="custom_test",
+            )
+
+            onnx_path = exporter.export(validate=True)
+            onnx_model = onnx.load(str(onnx_path))
+
+            # Find appliances metadata entry
+            metadata_dict = {
+                prop.key: prop.value
+                for prop in onnx_model.metadata_props
+            }
+
+            assert "appliances" in metadata_dict
+            assert "SOLAR" in metadata_dict["appliances"]
+            assert "WIND" in metadata_dict["appliances"]
+            assert "STORAGE" in metadata_dict["appliances"]
+
+            # Check output shape is correct for 3 appliances
+            output_shape = [
+                dim.dim_value
+                for dim in onnx_model.graph.output[0].type.tensor_type.shape.dim
+            ]
+            assert output_shape == [1, 3]
+
     def test_lstm_export(self):
         """Test LSTM model exports correctly."""
         model = LSTMModel(

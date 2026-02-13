@@ -25,6 +25,23 @@ def load_model(checkpoint_path: str, model_type: str):
     return model_classes[model_type].load_from_checkpoint(checkpoint_path)
 
 
+def get_loader(args):
+    """Create a dataset loader from CLI args."""
+    dataset = getattr(args, "dataset", "sided")
+
+    if dataset == "csv":
+        from edge_pipeline.data.csv_loader import CsvLoader
+
+        return CsvLoader(
+            data_dir=args.data_dir,
+            aggregate_column=getattr(args, "aggregate_column", "aggregate"),
+            timestamp_column=getattr(args, "timestamp_column", "timestamp"),
+        )
+
+    from edge_pipeline.data.sided_loader import SidedLoader
+    return SidedLoader(cache_dir=args.data_dir)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Export NILM model to ONNX")
     parser.add_argument("checkpoint", type=str, help="Path to model checkpoint")
@@ -54,6 +71,13 @@ def main():
         help="Data directory (for normalisation metadata)",
     )
     parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["sided", "csv"],
+        default="sided",
+        help="Dataset type",
+    )
+    parser.add_argument(
         "--window-size",
         type=int,
         default=60,
@@ -72,7 +96,9 @@ def main():
 
     # Get normalisation metadata from datamodule
     print("Loading normalisation metadata...")
+    loader = get_loader(args)
     datamodule = NilmDataModule(
+        loader=loader,
         data_dir=args.data_dir,
         window_size=args.window_size,
         use_amda=False,

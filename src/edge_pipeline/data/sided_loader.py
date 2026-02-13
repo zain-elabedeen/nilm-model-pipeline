@@ -4,14 +4,14 @@ Loads the Synthetic Industrial Dataset for Energy Disaggregation from
 Hugging Face and maps SIDED categories to Underscore appliance types.
 """
 
-from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Iterator
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+
+from edge_pipeline.data.base import FacilityData, NilmDatasetLoader
 
 # Hugging Face dataset identifier
 DATASET_ID = "CInterno/Synthetic_Industrial_Dataset_For_Energy_Disaggregation_SIDED"
@@ -44,25 +44,7 @@ class ApplianceType(Enum):
     BASE_LOAD = 4  # Factory production machinery + misc
 
 
-@dataclass
-class FacilityData:
-    """Data for a single industrial facility."""
-
-    facility_id: str
-    aggregate: np.ndarray  # Shape: (timesteps,)
-    appliances: np.ndarray  # Shape: (timesteps, 5)
-    timestamps: pd.DatetimeIndex
-    resolution_minutes: int = 1  # SIDED Hugging Face dataset uses 1-minute resolution
-
-    def __len__(self) -> int:
-        return len(self.aggregate)
-
-    @property
-    def num_days(self) -> int:
-        return len(self) // (24 * 60 // self.resolution_minutes)
-
-
-class SidedLoader:
+class SidedLoader(NilmDatasetLoader):
     """Loads SIDED dataset from Hugging Face."""
 
     def __init__(
@@ -73,6 +55,15 @@ class SidedLoader:
         self.cache_dir = Path(cache_dir).expanduser()
         self.force_download = force_download
         self._facilities: dict[str, FacilityData] | None = None
+
+    @property
+    def appliance_names(self) -> list[str]:
+        return APPLIANCE_ORDER
+
+    def available_sites(self) -> list[str]:
+        if self._facilities is None:
+            self._load_hf_dataset()
+        return sorted(self._facilities.keys())
 
     def _load_hf_dataset(self) -> None:
         """Load the full dataset from Hugging Face and split into facilities."""
@@ -112,33 +103,20 @@ class SidedLoader:
                 timestamps=pd.DatetimeIndex(timestamps),
             )
 
-    def load_facility(self, facility_id: str) -> FacilityData:
+    def load_site(self, site_id: str) -> FacilityData:
         """Load data for a single facility, mapping SIDED columns to Underscore types."""
         if self._facilities is None:
             self._load_hf_dataset()
-        if facility_id not in self._facilities:
+        if site_id not in self._facilities:
             available = sorted(self._facilities.keys())
             raise ValueError(
-                f"Facility {facility_id} not found. Available: {available}"
+                f"Facility {site_id} not found. Available: {available}"
             )
-        return self._facilities[facility_id]
+        return self._facilities[site_id]
 
-    def load_all(self, facility_ids: list[str] | None = None) -> list[FacilityData]:
-        """Load data for multiple facilities."""
-        if self._facilities is None:
-            self._load_hf_dataset()
-
-        if facility_ids is None:
-            facility_ids = sorted(self._facilities.keys())
-
-        facilities = []
-        for fid in tqdm(facility_ids, desc="Loading facilities"):
-            try:
-                facilities.append(self.load_facility(fid))
-            except Exception as e:
-                print(f"Warning: Failed to load facility {fid}: {e}")
-
-        return facilities
+    def load_facility(self, facility_id: str) -> FacilityData:
+        """Alias for load_site (backwards compatibility)."""
+        return self.load_site(facility_id)
 
 
 class SidedDataset:

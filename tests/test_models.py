@@ -171,6 +171,78 @@ class TestExampleInput:
         assert example.shape == (1, 60)
 
 
+class TestCustomAppliances:
+    """Test models with custom appliance names."""
+
+    @pytest.fixture
+    def sample_batch(self):
+        """Create sample input batch."""
+        return torch.randn(4, 60)
+
+    def test_tcn_custom_appliances(self, sample_batch):
+        """Test TCN with 3 custom appliances."""
+        model = TCNModel(
+            window_size=60,
+            num_channels=16,
+            num_layers=2,
+            appliance_names=["A", "B", "C"],
+        )
+
+        assert model.num_appliances == 3
+        assert model.appliance_names == ["A", "B", "C"]
+
+        output = model(sample_batch)
+        assert output.shape == (4, 3)
+
+    def test_lstm_custom_appliances(self, sample_batch):
+        """Test LSTM with 3 custom appliances."""
+        model = LSTMModel(
+            window_size=60,
+            hidden_size=16,
+            num_layers=1,
+            appliance_names=["X", "Y", "Z"],
+        )
+
+        assert model.num_appliances == 3
+        output = model(sample_batch)
+        assert output.shape == (4, 3)
+
+    def test_atcn_custom_appliances(self, sample_batch):
+        """Test ATCN with 2 custom appliances."""
+        model = ATCNModel(
+            window_size=60,
+            num_channels=16,
+            num_tcn_layers=2,
+            num_attention_heads=2,
+            appliance_names=["SOLAR", "BATTERY"],
+        )
+
+        assert model.num_appliances == 2
+        output = model(sample_batch)
+        assert output.shape == (4, 2)
+
+    def test_default_appliance_names(self):
+        """Test default SIDED appliance names when none provided."""
+        model = TCNModel(window_size=60, num_channels=16, num_layers=2)
+
+        assert model.num_appliances == 5
+        assert model.appliance_names == [
+            "BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"
+        ]
+
+    def test_num_appliances_without_names(self):
+        """Test generic names when num_appliances != 5 and no names given."""
+        model = TCNModel(
+            window_size=60,
+            num_appliances=3,
+            num_channels=16,
+            num_layers=2,
+        )
+
+        assert model.num_appliances == 3
+        assert model.appliance_names == ["APPLIANCE_0", "APPLIANCE_1", "APPLIANCE_2"]
+
+
 class TestModelParameters:
     """Test model parameter counts."""
 

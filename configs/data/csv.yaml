@@ -1,0 +1,22 @@
+# CSV dataset configuration
+name: csv
+data_dir: ./data
+aggregate_column: aggregate
+timestamp_column: timestamp
+resolution_minutes: 1
+file_pattern: "*.csv"
+
+# Window configuration
+window_size: 60
+stride: 1
+
+# Batch size
+batch_size: 256
+num_workers: 4
+
+# Preprocessing
+use_robust_scaling: true
+
+# Augmentation
+use_amda: false
+amda_scale: 2.5

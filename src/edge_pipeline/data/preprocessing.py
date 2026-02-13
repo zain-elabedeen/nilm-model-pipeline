@@ -45,13 +45,16 @@ DEFAULT_INPUT_PARAMS = NormalisationParams(
     max_val=150_000.0,
 )
 
-DEFAULT_OUTPUT_PARAMS = {
+SIDED_DEFAULT_OUTPUT_PARAMS = {
     "BATTERY": NormalisationParams(mean=0.0, std=15_000.0, min_val=-50_000.0, max_val=50_000.0),
     "SOLAR": NormalisationParams(mean=-20_000.0, std=20_000.0, min_val=-100_000.0, max_val=0.0),
     "COOLING": NormalisationParams(mean=20_000.0, std=20_000.0, min_val=0.0, max_val=100_000.0),
     "GENERATOR": NormalisationParams(mean=-50_000.0, std=80_000.0, min_val=-500_000.0, max_val=0.0),
     "BASE_LOAD": NormalisationParams(mean=40_000.0, std=30_000.0, min_val=0.0, max_val=200_000.0),
 }
+
+# Backwards compatibility alias
+DEFAULT_OUTPUT_PARAMS = SIDED_DEFAULT_OUTPUT_PARAMS
 
 
 class RobustScaler:
@@ -172,6 +175,7 @@ class WindowGenerator:
         stride: int = 1,
         input_normaliser: ZScoreNormaliser | RobustScaler | None = None,
         output_normalisers: dict[str, ZScoreNormaliser] | None = None,
+        appliance_names: list[str] | None = None,
     ):
         """
         Initialise window generator.
@@ -181,11 +185,15 @@ class WindowGenerator:
             stride: Step size between consecutive windows
             input_normaliser: Normaliser for aggregate power input
             output_normalisers: Dict mapping appliance name to normaliser
+            appliance_names: Ordered appliance names. If None, defaults to SIDED names.
         """
         self.window_size = window_size
         self.stride = stride
         self.input_normaliser = input_normaliser
         self.output_normalisers = output_normalisers
+        self.appliance_names = appliance_names or [
+            "BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"
+        ]
 
     def generate_windows(
         self,
@@ -198,18 +206,19 @@ class WindowGenerator:
 
         Args:
             aggregate: Shape (timesteps,) aggregate power
-            appliances: Shape (timesteps, 5) appliance powers
+            appliances: Shape (timesteps, num_appliances) appliance powers
 
         Returns:
             Tuple of (inputs, targets):
             - inputs: Shape (n_windows, window_size)
-            - targets: Shape (n_windows, 5)
+            - targets: Shape (n_windows, num_appliances)
         """
+        num_appliances = appliances.shape[1]
         n_samples = len(aggregate)
         n_windows = (n_samples - self.window_size) // self.stride + 1
 
         inputs = np.zeros((n_windows, self.window_size), dtype=np.float32)
-        targets = np.zeros((n_windows, 5), dtype=np.float32)
+        targets = np.zeros((n_windows, num_appliances), dtype=np.float32)
 
         for i in range(n_windows):
             start = i * self.stride
@@ -224,8 +233,7 @@ class WindowGenerator:
                 inputs = self.input_normaliser.transform(inputs)
 
             if self.output_normalisers is not None:
-                appliance_names = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
-                for j, name in enumerate(appliance_names):
+                for j, name in enumerate(self.appliance_names):
                     if name in self.output_normalisers:
                         targets[:, j] = self.output_normalisers[name].transform(targets[:, j])
 
@@ -245,10 +253,16 @@ class WindowGenerator:
 
         self.input_normaliser.fit(aggregate)
 
-        appliance_names = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
+        num_appliances = appliances.shape[1]
+        if len(self.appliance_names) != num_appliances:
+            raise ValueError(
+                f"appliance_names has {len(self.appliance_names)} entries "
+                f"but data has {num_appliances} appliance columns"
+            )
+
         self.output_normalisers = {}
 
-        for j, name in enumerate(appliance_names):
+        for j, name in enumerate(self.appliance_names):
             if use_robust:
                 normaliser = RobustScaler(use_robust=True)
             else:

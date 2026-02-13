@@ -9,9 +9,6 @@ from edge_pipeline.data.datamodule import NilmDataModule
 from edge_pipeline.evaluation.metrics import compute_metrics_numpy
 
 
-APPLIANCE_NAMES = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
-
-
 def load_model(checkpoint_path: str, model_type: Literal["lstm", "tcn", "atcn"]):
     """Load model from checkpoint.
 
@@ -78,7 +75,13 @@ def evaluate_model(
     results = compute_metrics_numpy(preds, targets)
 
     # Per-appliance metrics
-    for i, name in enumerate(APPLIANCE_NAMES):
+    appliance_names = getattr(
+        model, "appliance_names",
+        ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"],
+    )
+    for i, name in enumerate(appliance_names):
+        if i >= preds.shape[1]:
+            break
         appliance_metrics = compute_metrics_numpy(preds[:, i], targets[:, i])
         results[f"{name}_mae"] = appliance_metrics["mae"]
         results[f"{name}_mse"] = appliance_metrics["mse"]

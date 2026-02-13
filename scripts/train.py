@@ -12,7 +12,30 @@ from edge_pipeline.models.tcn import TCNModel
 from edge_pipeline.training.trainer import NilmTrainer
 
 
-def get_model(cfg: DictConfig):
+def get_loader(cfg: DictConfig):
+    """Instantiate a dataset loader from config."""
+    dataset_name = cfg.data.get("name", "sided")
+
+    if dataset_name == "csv":
+        from edge_pipeline.data.csv_loader import CsvLoader
+
+        return CsvLoader(
+            data_dir=cfg.data.data_dir,
+            aggregate_column=cfg.data.get("aggregate_column", "aggregate"),
+            timestamp_column=cfg.data.get("timestamp_column", "timestamp"),
+            resolution_minutes=cfg.data.get("resolution_minutes", 1),
+            file_pattern=cfg.data.get("file_pattern", "*.csv"),
+        )
+
+    if dataset_name == "sided":
+        from edge_pipeline.data.sided_loader import SidedLoader
+
+        return SidedLoader(cache_dir=cfg.data.data_dir)
+
+    raise ValueError(f"Unknown dataset: {dataset_name}")
+
+
+def get_model(cfg: DictConfig, appliance_names: list[str]):
     """Instantiate model from config."""
     model_classes = {
         "lstm": LSTMModel,
@@ -32,6 +55,7 @@ def get_model(cfg: DictConfig):
         "learning_rate": cfg.model.learning_rate,
         "weight_decay": cfg.model.weight_decay,
         "max_epochs": cfg.training.max_epochs,
+        "appliance_names": appliance_names,
     }
 
     # Model-specific params
@@ -74,23 +98,33 @@ def main(cfg: DictConfig) -> float:
     # Set seed
     pl.seed_everything(cfg.seed)
 
+    # Create loader
+    loader = get_loader(cfg)
+
+    # Resolve site splits
+    dataset_name = cfg.data.get("name", "sided")
+    train_sites = list(cfg.data.train_facilities) if "train_facilities" in cfg.data else None
+    val_sites = list(cfg.data.val_facilities) if "val_facilities" in cfg.data else None
+    test_sites = list(cfg.data.test_facilities) if "test_facilities" in cfg.data else None
+
     # Create datamodule
     datamodule = NilmDataModule(
+        loader=loader,
         data_dir=cfg.data.data_dir,
         window_size=cfg.data.window_size,
         stride=cfg.data.stride,
         batch_size=cfg.data.batch_size,
         num_workers=cfg.data.num_workers,
-        train_facilities=list(cfg.data.train_facilities),
-        val_facilities=list(cfg.data.val_facilities),
-        test_facilities=list(cfg.data.test_facilities),
+        train_sites=train_sites,
+        val_sites=val_sites,
+        test_sites=test_sites,
         use_amda=cfg.data.use_amda,
         amda_scale=cfg.data.amda_scale,
         use_robust_scaling=cfg.data.use_robust_scaling,
     )
 
     # Create model
-    model = get_model(cfg)
+    model = get_model(cfg, datamodule.appliance_names)
 
     # Create trainer
     experiment_name = f"{cfg.model.name}"

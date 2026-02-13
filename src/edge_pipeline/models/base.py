@@ -15,10 +15,11 @@ class NilmModel(pl.LightningModule, ABC):
     """
     Abstract base class for NILM sequence-to-point models.
 
-    All models take input shape (batch, window_size) and output (batch, 5)
-    for the 5 appliance types: Battery, Solar, Cooling, Generator, Base Load.
+    All models take input shape (batch, window_size) and output
+    (batch, num_appliances) for the configured appliance types.
     """
 
+    # Class-level default for backwards compatibility with old checkpoints
     APPLIANCE_NAMES = ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"]
 
     def __init__(
@@ -28,15 +29,26 @@ class NilmModel(pl.LightningModule, ABC):
         learning_rate: float = 1e-3,
         weight_decay: float = 1e-5,
         max_epochs: int = 100,
+        appliance_names: list[str] | None = None,
     ):
         super().__init__()
         self.save_hyperparameters()
 
         self.window_size = window_size
-        self.num_appliances = num_appliances
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
         self.max_epochs = max_epochs
+
+        if appliance_names is not None:
+            self.appliance_names = appliance_names
+            self.num_appliances = len(appliance_names)
+        else:
+            self.num_appliances = num_appliances
+            # Fall back to class-level SIDED defaults when num_appliances matches
+            if num_appliances == len(self.APPLIANCE_NAMES):
+                self.appliance_names = list(self.APPLIANCE_NAMES)
+            else:
+                self.appliance_names = [f"APPLIANCE_{i}" for i in range(num_appliances)]
 
         self.metrics = NilmMetrics()
         self.loss_fn = nn.MSELoss()
@@ -81,7 +93,7 @@ class NilmModel(pl.LightningModule, ABC):
         self.log("val/nde", metrics["nde"])
 
         # Per-appliance metrics
-        for i, name in enumerate(self.APPLIANCE_NAMES):
+        for i, name in enumerate(self.appliance_names):
             self.log(f"val/mae_{name}", metrics["mae_per_appliance"][i])
 
     def test_step(
@@ -99,7 +111,7 @@ class NilmModel(pl.LightningModule, ABC):
         self.log("test/r2", metrics["r2"])
         self.log("test/nde", metrics["nde"])
 
-        for i, name in enumerate(self.APPLIANCE_NAMES):
+        for i, name in enumerate(self.appliance_names):
             self.log(f"test/mae_{name}", metrics["mae_per_appliance"][i])
 
     def configure_optimizers(self) -> dict:
