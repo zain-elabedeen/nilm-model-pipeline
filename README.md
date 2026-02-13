@@ -4,21 +4,25 @@ Trains disaggregation models for identifying what's consuming and generating pow
 
 ## Where this fits
 
-**Measure** → Model (this) → Orchestrate → Trade
+**Measure** -> Model (this) -> Orchestrate -> Trade
 
-This repository trains PyTorch models on the [SIDED dataset](https://huggingface.co/datasets/CInterno/Synthetic_Industrial_Dataset_For_Energy_Disaggregation_SIDED) and exports ONNX models for deployment in the [Edge Runtime](https://github.com/underscoreHQ/underscore-edge-runtime) daemon.
+This repository trains PyTorch models and exports ONNX models for deployment in the [Edge Runtime](https://github.com/underscoreHQ/underscore-edge-runtime) daemon. It ships with a built-in loader for the [SIDED dataset](https://huggingface.co/datasets/CInterno/Synthetic_Industrial_Dataset_For_Energy_Disaggregation_SIDED) and supports custom datasets via CSV.
 
 ## What it produces
 
-ONNX models that disaggregate aggregate power into 5 categories:
+ONNX models that disaggregate aggregate power into per-appliance estimates. The number and names of appliance categories are determined by the dataset loader.
+
+The built-in SIDED loader maps to these categories:
 
 | Category | Description | Typical Range |
 |----------|-------------|---------------|
-| **EVSE** | EV charging | 0 to 22 kW |
-| **PV** | Solar generation | -50 to 0 kW |
-| **CS** | Cooling systems | 0 to 30 kW |
-| **CHP** | Combined heat and power | -20 to 5 kW |
-| **BA** | Base appliances | 0 to 10 kW |
+| **BATTERY** | Battery storage | -50 to 50 kW |
+| **SOLAR** | Solar generation | -100 to 0 kW |
+| **COOLING** | Cooling systems | 0 to 100 kW |
+| **GENERATOR** | Diesel/gas generator | -500 to 0 kW |
+| **BASE_LOAD** | Factory production machinery | 0 to 200 kW |
+
+Custom datasets define their own appliance categories.
 
 ## Model architectures
 
@@ -39,7 +43,7 @@ pip install -e ".[dev]"
 To train on Google Colab without any local setup, use the notebook at `notebooks/colab_training.ipynb`.
 
 ```bash
-# Default (TCN + AMDA augmentation)
+# Default (TCN on SIDED + AMDA augmentation)
 python scripts/train.py
 
 # Specific model
@@ -51,6 +55,16 @@ python scripts/train.py experiment=baseline
 # AMDA scaling factor sweep
 python scripts/train.py experiment=amda_sweep --multirun
 ```
+
+### Custom CSV datasets
+
+Place one CSV file per site in a directory. Each CSV must have an aggregate power column and one or more appliance columns. Appliance columns are auto-detected from the headers.
+
+```bash
+python scripts/train.py data=csv data.data_dir=./my_data
+```
+
+See `configs/data/csv.yaml` for all available options.
 
 ## Export to ONNX
 
@@ -66,8 +80,8 @@ The export produces:
 - Normalisation metadata JSON for the Rust runtime
 
 **Model specification:**
-- Input: `[1, 60]` float32 (60-minute window)
-- Output: `[1, 5]` float32 (power per category)
+- Input: `[1, window_size]` float32 (default: 60-minute window)
+- Output: `[1, num_appliances]` float32 (power per category)
 - Opset: 17
 
 ## AMDA augmentation
