@@ -96,6 +96,13 @@ class SidedLoader(NilmDatasetLoader):
                 chunk[col].values.astype(np.float32) for col in SIDED_COLUMN_ORDER
             ])
 
+            # Drop rows containing NaN or inf in either aggregate or appliances
+            valid = np.isfinite(aggregate) & np.all(np.isfinite(appliances), axis=1)
+            if not np.all(valid):
+                aggregate = aggregate[valid]
+                appliances = appliances[valid]
+                timestamps = timestamps[valid]
+
             self._facilities[facility_id] = FacilityData(
                 facility_id=facility_id,
                 aggregate=aggregate,

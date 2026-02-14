@@ -110,6 +110,13 @@ class CsvLoader(NilmDatasetLoader):
             [df[col].values.astype(np.float32) for col in columns]
         )
 
+        # Drop rows containing NaN or inf in either aggregate or appliances
+        valid = np.isfinite(aggregate) & np.all(np.isfinite(appliances), axis=1)
+        if not np.all(valid):
+            aggregate = aggregate[valid]
+            appliances = appliances[valid]
+            df = df[valid]
+
         if self.timestamp_column is not None and self.timestamp_column in df.columns:
             timestamps = pd.DatetimeIndex(pd.to_datetime(df[self.timestamp_column]))
         else:
