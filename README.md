@@ -108,8 +108,10 @@ pytest tests/ -v
 
 ## Experiment tracking
 
-Logs to Weights & Biases by default. Disable with:
+Training metrics are logged to [Weights & Biases](https://wandb.ai/). Since models are deployed to edge devices rather than cloud endpoints, traditional MLOps platforms (Vertex AI, SageMaker) are not a good fit. W&B provides experiment comparison, loss visualisation, and hyperparameter sweep tracking without the production-serving infrastructure we don't need.
+
+W&B logging is disabled by default. Enable it with:
 
 ```bash
-python scripts/train.py logging.use_wandb=false
+python scripts/train.py logging.use_wandb=true
 ```

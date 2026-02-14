@@ -21,7 +21,7 @@ training:
 
 # Logging
 logging:
-  use_wandb: true
+  use_wandb: false
   wandb_offline: false
   project_name: underscore-edge-model-pipeline
   log_every_n_steps: 10
