@@ -42,6 +42,16 @@ pip install -e ".[dev]"
 
 To train on Google Colab without any local setup, use the notebook at `notebooks/colab_training.ipynb`.
 
+If you have a local GPU machine, you can run a local Colab runtime and connect the hosted Colab UI to it:
+
+```bash
+docker run --gpus all -p 127.0.0.1:9000:8080 \
+  -e GITHUB_TOKEN=ghp_... \
+  us-docker.pkg.dev/colab-images/public/runtime
+```
+
+Then in Colab, go to **Connect to a local runtime** and enter `http://localhost:9000`. The notebook detects whether it is running on hosted or local Colab and adjusts token retrieval and artefact download accordingly.
+
 ```bash
 # Default (TCN on SIDED + AMDA augmentation)
 python scripts/train.py
