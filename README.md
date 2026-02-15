@@ -112,7 +112,7 @@ python scripts/evaluate.py checkpoints/best.ckpt --model-type tcn
 ## Testing
 
 ```bash
-pytest tests/ -v
+uv run --extra dev pytest tests/ -v
 ```
 
 ## Experiment tracking
