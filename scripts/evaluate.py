@@ -13,7 +13,7 @@ def main():
     parser.add_argument(
         "--model-type",
         type=str,
-        choices=["lstm", "tcn", "atcn"],
+        choices=["lstm", "tcn"],
         required=True,
         help="Model architecture",
     )

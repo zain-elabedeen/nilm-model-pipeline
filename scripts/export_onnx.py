@@ -6,7 +6,6 @@ from pathlib import Path
 
 from edge_pipeline.data.datamodule import NilmDataModule
 from edge_pipeline.export.onnx_exporter import OnnxExporter
-from edge_pipeline.models.atcn import ATCNModel
 from edge_pipeline.models.lstm import LSTMModel
 from edge_pipeline.models.tcn import TCNModel
 
@@ -16,7 +15,6 @@ def load_model(checkpoint_path: str, model_type: str):
     model_classes = {
         "lstm": LSTMModel,
         "tcn": TCNModel,
-        "atcn": ATCNModel,
     }
 
     if model_type not in model_classes:
@@ -48,7 +46,7 @@ def main():
     parser.add_argument(
         "--model-type",
         type=str,
-        choices=["lstm", "tcn", "atcn"],
+        choices=["lstm", "tcn"],
         required=True,
         help="Model architecture",
     )

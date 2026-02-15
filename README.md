@@ -28,7 +28,6 @@ Custom datasets define their own appliance categories.
 
 - **TCN** (default): 8-layer Temporal Convolutional Network
 - **LSTM**: 3-layer bidirectional LSTM
-- **ATCN**: TCN with multi-head self-attention
 
 ## Installation
 

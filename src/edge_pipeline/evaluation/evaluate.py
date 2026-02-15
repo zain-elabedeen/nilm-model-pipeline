@@ -9,7 +9,7 @@ from edge_pipeline.data.datamodule import NilmDataModule
 from edge_pipeline.evaluation.metrics import compute_metrics_numpy
 
 
-def load_model(checkpoint_path: str, model_type: Literal["lstm", "tcn", "atcn"]):
+def load_model(checkpoint_path: str, model_type: Literal["lstm", "tcn"]):
     """Load model from checkpoint.
 
     Args:
@@ -19,14 +19,12 @@ def load_model(checkpoint_path: str, model_type: Literal["lstm", "tcn", "atcn"])
     Returns:
         Loaded model in eval mode
     """
-    from edge_pipeline.models.atcn import ATCNModel
     from edge_pipeline.models.lstm import LSTMModel
     from edge_pipeline.models.tcn import TCNModel
 
     model_classes = {
         "lstm": LSTMModel,
         "tcn": TCNModel,
-        "atcn": ATCNModel,
     }
 
     if model_type not in model_classes:

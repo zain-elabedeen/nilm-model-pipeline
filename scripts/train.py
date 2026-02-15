@@ -6,7 +6,6 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig, OmegaConf
 
 from edge_pipeline.data.datamodule import NilmDataModule
-from edge_pipeline.models.atcn import ATCNModel
 from edge_pipeline.models.lstm import LSTMModel
 from edge_pipeline.models.tcn import TCNModel
 from edge_pipeline.training.trainer import NilmTrainer
@@ -40,7 +39,6 @@ def get_model(cfg: DictConfig, appliance_names: list[str]):
     model_classes = {
         "lstm": LSTMModel,
         "tcn": TCNModel,
-        "atcn": ATCNModel,
     }
 
     model_name = cfg.model.name
@@ -73,16 +71,6 @@ def get_model(cfg: DictConfig, appliance_names: list[str]):
             num_channels=cfg.model.num_channels,
             num_layers=cfg.model.num_layers,
             kernel_size=cfg.model.kernel_size,
-            dropout=cfg.model.dropout,
-        )
-    elif model_name == "atcn":
-        return model_class(
-            **common_params,
-            num_channels=cfg.model.num_channels,
-            num_tcn_layers=cfg.model.num_tcn_layers,
-            kernel_size=cfg.model.kernel_size,
-            num_attention_heads=cfg.model.num_attention_heads,
-            attention_layers=cfg.model.attention_layers,
             dropout=cfg.model.dropout,
         )
 

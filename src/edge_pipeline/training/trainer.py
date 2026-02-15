@@ -130,7 +130,7 @@ class NilmTrainer:
 
 
 def train_model(
-    model_type: Literal["lstm", "tcn", "atcn"],
+    model_type: Literal["lstm", "tcn"],
     window_size: int = 60,
     batch_size: int = 256,
     max_epochs: int = 100,
@@ -161,7 +161,6 @@ def train_model(
     Returns:
         Tuple of (trained model, trainer)
     """
-    from edge_pipeline.models.atcn import ATCNModel
     from edge_pipeline.models.lstm import LSTMModel
     from edge_pipeline.models.tcn import TCNModel
 
@@ -179,7 +178,6 @@ def train_model(
     model_classes = {
         "lstm": LSTMModel,
         "tcn": TCNModel,
-        "atcn": ATCNModel,
     }
 
     model = model_classes[model_type](
