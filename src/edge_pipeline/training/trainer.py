@@ -38,7 +38,6 @@ class NilmTrainer:
         gradient_clip_val: float = 1.0,
         use_wandb: bool = True,
         wandb_offline: bool = False,
-        log_every_n_steps:int = 20,
         check_val_every_n_epoch:int = 1,
     ):
         """
@@ -105,7 +104,7 @@ class NilmTrainer:
             callbacks=callbacks,
             logger=logger,
             enable_progress_bar=True,
-            log_every_n_steps=log_every_n_steps,
+            log_every_n_steps=20,
             check_val_every_n_epoch = check_val_every_n_epoch,
         )
 
@@ -143,6 +142,7 @@ def train_model(
     num_workers: int = 4,
     output_dir: str = "outputs",
     use_wandb: bool = True,
+    check_val_every_n_epoch:int = 1,
     loader: NilmDatasetLoader | None = None,
 ) -> tuple[NilmModel, NilmTrainer]:
     """
@@ -159,6 +159,7 @@ def train_model(
         num_workers: DataLoader workers (reduce to 2 on Colab)
         output_dir: Output directory
         use_wandb: Whether to use W&B logging
+        check_val_every_n_epoch: Run Validation every n epochs
         loader: Optional dataset loader. If None, uses SIDED.
 
     Returns:
@@ -198,6 +199,7 @@ def train_model(
         output_dir=output_dir,
         max_epochs=max_epochs,
         use_wandb=use_wandb,
+        check_val_every_n_epoch=check_val_every_n_epoch,
     )
 
     # Train
