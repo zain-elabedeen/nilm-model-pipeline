@@ -38,6 +38,8 @@ class NilmTrainer:
         gradient_clip_val: float = 1.0,
         use_wandb: bool = True,
         wandb_offline: bool = False,
+        log_every_n_steps:int = 20,
+        check_val_every_n_epoch:int = 1,
     ):
         """
         Initialise trainer.
@@ -103,7 +105,8 @@ class NilmTrainer:
             callbacks=callbacks,
             logger=logger,
             enable_progress_bar=True,
-            log_every_n_steps=10,
+            log_every_n_steps=log_every_n_steps,
+            check_val_every_n_epoch = check_val_every_n_epoch,
         )
 
     def train(self) -> None:
