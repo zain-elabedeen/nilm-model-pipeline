@@ -16,7 +16,7 @@ if [[ -z "${PROJECT_ID}" || "${PROJECT_ID}" == "(unset)" ]]; then
 fi
 
 REGION="${REGION:-${VERTEX_REGION:-us-central1}}"
-AR_REPO="${AR_REPO:-vertex-training}"
+AR_REPO="${AR_REPO:-edge-model-pipeline}"
 IMAGE_NAME="${IMAGE_NAME:-edge-model}"
 ENABLE_APIS="${ENABLE_APIS:-true}"
 
