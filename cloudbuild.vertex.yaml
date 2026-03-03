@@ -1,0 +1,14 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.vertex
+      - -t
+      - ${_IMAGE_REPO}:${_IMAGE_TAG}
+      - -t
+      - ${_IMAGE_REPO}:latest
+      - .
+images:
+  - ${_IMAGE_REPO}:${_IMAGE_TAG}
+  - ${_IMAGE_REPO}:latest

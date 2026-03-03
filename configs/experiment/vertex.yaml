@@ -1,0 +1,15 @@
+# Vertex AI experiment profile
+# @package _global_
+
+name: vertex
+
+# Cloud output location. Set VERTEX_OUTPUT_DIR explicitly if needed.
+output_dir: ${oc.env:VERTEX_OUTPUT_DIR,/gcs/${oc.env:VERTEX_BUCKET,edge-model-pipeline-vertex-bucket}/runs/${now:%Y-%m-%d}/${now:%H-%M-%S}}
+
+training:
+  accelerator: ${oc.env:VERTEX_ACCELERATOR,gpu}
+  devices: ${oc.env:VERTEX_DEVICES,1}
+  precision: ${oc.env:VERTEX_PRECISION,32}
+
+data:
+  num_workers: ${oc.env:VERTEX_NUM_WORKERS,4}
