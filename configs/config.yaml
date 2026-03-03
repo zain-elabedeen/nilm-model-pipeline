@@ -1,7 +1,7 @@
 # Root Hydra configuration for edge model training
 
 defaults:
-  - model: tcn
+  - model: atcn
   - data: sided
   - experiment: baseline
   - _self_
@@ -10,21 +10,36 @@ defaults:
 seed: 42
 output_dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
+model:
+  learning_rate: 1e-3
+
+# Data
+data:
+  window_size: 288
+  batch_size: 128
+  num_workers: 2
+  use_amda: true
+  amda_scale: 2.5
+
 # Training
 training:
-  max_epochs: 100
-  patience: 15
+  max_epochs: 30
+  patience: 10
   accelerator: auto
   devices: auto
   precision: "32"
   gradient_clip_val: 1.0
+  stride: 5
+  check_val_every_n_epoch: 2
+  window_size:  288
+  batch_size: 128
 
 # Logging
 logging:
   use_wandb: false
   wandb_offline: false
   project_name: underscore-edge-model-pipeline
-  log_every_n_steps: 10
+  log_every_n_steps: 20
 
 # Hydra configuration
 hydra:

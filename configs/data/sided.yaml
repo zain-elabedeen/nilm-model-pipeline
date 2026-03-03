@@ -5,13 +5,12 @@ name: sided
 data_dir: ~/.cache/edge-pipeline/sided
 
 # Window configuration
-window_size: 60  # 1 hour at 1-minute resolution
-stride: 1
+window_size: 288  # 1 hour at 1-minute resolution
+stride: 5
 
 # Batch size
-batch_size: 256
-num_workers: 4
-
+batch_size: 128
+num_workers: 2
 # Facility splits
 train_facilities:
   - F01

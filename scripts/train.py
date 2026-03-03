@@ -139,6 +139,7 @@ def main(cfg: DictConfig) -> float:
         output_dir=cfg.output_dir,
         max_epochs=cfg.training.max_epochs,
         patience=cfg.training.patience,
+        check_val_every_n_epoch=OmegaConf.select(cfg, "training.check_val_every_n_epoch", default=1),
         accelerator=cfg.training.accelerator,
         devices=cfg.training.devices,
         precision=cfg.training.precision,

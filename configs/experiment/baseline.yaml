@@ -9,5 +9,5 @@ data:
 
 # Shorter training for baseline
 training:
-  max_epochs: 50
+  max_epochs: 30
   patience: 10
