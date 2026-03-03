@@ -127,3 +127,10 @@ wandb/
 
 # Hydra outputs
 multirun/
+
+# PyTorch Lightning logs
+lightning_logs/
+
+# MLflow tracking outputs
+mlruns/
+mlflow.db

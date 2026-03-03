@@ -102,7 +102,6 @@ def main(cfg: DictConfig) -> float:
     loader = get_loader(cfg)
 
     # Resolve site splits
-    dataset_name = cfg.data.get("name", "sided")
     train_sites = list(cfg.data.train_facilities) if "train_facilities" in cfg.data else None
     val_sites = list(cfg.data.val_facilities) if "val_facilities" in cfg.data else None
     test_sites = list(cfg.data.test_facilities) if "test_facilities" in cfg.data else None
@@ -146,6 +145,12 @@ def main(cfg: DictConfig) -> float:
         gradient_clip_val=cfg.training.gradient_clip_val,
         use_wandb=cfg.logging.use_wandb,
         wandb_offline=cfg.logging.wandb_offline,
+        use_mlflow=OmegaConf.select(cfg, "logging.use_mlflow", default=False),
+        mlflow_tracking_uri=OmegaConf.select(cfg, "logging.mlflow_tracking_uri", default=None),
+        mlflow_experiment_name=OmegaConf.select(
+            cfg, "logging.mlflow_experiment_name", default=cfg.logging.project_name
+        ),
+        mlflow_run_name=OmegaConf.select(cfg, "logging.mlflow_run_name", default=None),
     )
 
     # Train

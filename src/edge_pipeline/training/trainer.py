@@ -38,7 +38,11 @@ class NilmTrainer:
         gradient_clip_val: float = 1.0,
         use_wandb: bool = True,
         wandb_offline: bool = False,
-        check_val_every_n_epoch:int = 1,
+        use_mlflow: bool = False,
+        mlflow_tracking_uri: str | None = None,
+        mlflow_experiment_name: str | None = None,
+        mlflow_run_name: str | None = None,
+        check_val_every_n_epoch: int = 1,
     ):
         """
         Initialise trainer.
@@ -57,6 +61,10 @@ class NilmTrainer:
             gradient_clip_val: Gradient clipping value
             use_wandb: Whether to use Weights & Biases logging
             wandb_offline: Run W&B in offline mode
+            use_mlflow: Whether to use MLflow tracking
+            mlflow_tracking_uri: MLflow tracking URI (e.g. file:./mlruns)
+            mlflow_experiment_name: MLflow experiment name
+            mlflow_run_name: MLflow run name
         """
         self.model = model
         self.datamodule = datamodule
@@ -64,16 +72,44 @@ class NilmTrainer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Logger
-        logger = None
+        loggers = []
         if use_wandb:
-            logger = WandbLogger(
+            wandb_logger = WandbLogger(
                 project=project_name,
                 name=experiment_name,
                 save_dir=str(self.output_dir),
                 offline=wandb_offline,
                 log_model=True,
             )
-            logger.watch(model, log="gradients", log_freq=100)
+            wandb_logger.watch(model, log="gradients", log_freq=100)
+            loggers.append(wandb_logger)
+
+        if use_mlflow:
+            try:
+                import mlflow  # noqa: F401
+            except ModuleNotFoundError as exc:
+                raise ImportError(
+                    "MLflow logging requested but mlflow is not installed. "
+                    "Install dependencies with `uv sync` (or `pip install mlflow`)."
+                ) from exc
+
+            from pytorch_lightning.loggers import MLFlowLogger
+
+            mlflow_logger = MLFlowLogger(
+                experiment_name=mlflow_experiment_name or project_name,
+                run_name=mlflow_run_name or experiment_name,
+                tracking_uri=mlflow_tracking_uri,
+                save_dir=str(self.output_dir / "mlruns"),
+                log_model=False,
+            )
+            loggers.append(mlflow_logger)
+
+        if len(loggers) == 1:
+            logger = loggers[0]
+        elif len(loggers) > 1:
+            logger = loggers
+        else:
+            logger = False
 
         # Callbacks
         callbacks = [
@@ -105,7 +141,7 @@ class NilmTrainer:
             logger=logger,
             enable_progress_bar=True,
             log_every_n_steps=20,
-            check_val_every_n_epoch = check_val_every_n_epoch,
+            check_val_every_n_epoch=check_val_every_n_epoch,
         )
 
     def train(self) -> None:
@@ -143,7 +179,11 @@ def train_model(
     num_workers: int = 4,
     output_dir: str = "outputs",
     use_wandb: bool = True,
-    check_val_every_n_epoch:int = 1,
+    use_mlflow: bool = False,
+    mlflow_tracking_uri: str | None = None,
+    mlflow_experiment_name: str | None = None,
+    mlflow_run_name: str | None = None,
+    check_val_every_n_epoch: int = 1,
     loader: NilmDatasetLoader | None = None,
 ) -> tuple[NilmModel, NilmTrainer]:
     """
@@ -160,6 +200,10 @@ def train_model(
         num_workers: DataLoader workers (reduce to 2 on Colab)
         output_dir: Output directory
         use_wandb: Whether to use W&B logging
+        use_mlflow: Whether to use MLflow logging
+        mlflow_tracking_uri: MLflow tracking URI
+        mlflow_experiment_name: MLflow experiment name
+        mlflow_run_name: MLflow run name
         check_val_every_n_epoch: Run Validation every n epochs
         loader: Optional dataset loader. If None, uses SIDED.
 
@@ -203,6 +247,10 @@ def train_model(
         output_dir=output_dir,
         max_epochs=max_epochs,
         use_wandb=use_wandb,
+        use_mlflow=use_mlflow,
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        mlflow_experiment_name=mlflow_experiment_name,
+        mlflow_run_name=mlflow_run_name,
         check_val_every_n_epoch=check_val_every_n_epoch,
     )
 

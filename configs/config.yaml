@@ -38,6 +38,10 @@ training:
 logging:
   use_wandb: false
   wandb_offline: false
+  use_mlflow: false
+  mlflow_tracking_uri: null
+  mlflow_experiment_name: underscore-edge-model-pipeline
+  mlflow_run_name: null
   project_name: underscore-edge-model-pipeline
   log_every_n_steps: 20
 

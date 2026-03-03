@@ -1,7 +1,9 @@
 """PyTorch Lightning DataModule for NILM training."""
 
+import warnings
+from collections.abc import Callable
+from contextlib import suppress
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 import pytorch_lightning as pl
@@ -128,7 +130,16 @@ class NilmDataModule(pl.LightningDataModule):
     def _auto_split(self) -> None:
         """Split available sites 70/15/15 when no explicit splits are given."""
         sites = self._loader.available_sites()
+        if not sites:
+            raise ValueError("No sites available from dataset loader.")
+
         n = len(sites)
+        if n == 1:
+            self.train_sites = [sites[0]]
+            self.val_sites = [sites[0]]
+            self.test_sites = [sites[0]]
+            return
+
         n_train = max(1, int(n * 0.7))
         n_val = max(1, int(n * 0.15))
 
@@ -136,9 +147,51 @@ class NilmDataModule(pl.LightningDataModule):
         self.val_sites = sites[n_train:n_train + n_val]
         self.test_sites = sites[n_train + n_val:]
 
+        # Keep every split non-empty for tiny datasets.
+        if not self.val_sites:
+            self.val_sites = [self.train_sites[-1]]
         # Ensure test has at least one site
         if not self.test_sites:
-            self.test_sites = [self.val_sites[-1]]
+            self.test_sites = [self.val_sites[-1] if self.val_sites else self.train_sites[-1]]
+
+    def _resolve_split_sites(self) -> None:
+        """Filter missing configured sites and ensure split fallbacks are valid."""
+        available = set(self._loader.available_sites())
+        missing: list[str] = []
+
+        def _filter(sites: list[str] | None) -> list[str]:
+            if not sites:
+                return []
+            kept = [sid for sid in sites if sid in available]
+            missing.extend([sid for sid in sites if sid not in available])
+            return kept
+
+        train_sites = _filter(self.train_sites)
+        val_sites = _filter(self.val_sites)
+        test_sites = _filter(self.test_sites)
+
+        if missing:
+            missing_unique = sorted(set(missing))
+            warnings.warn(
+                f"Configured site IDs not found and will be skipped: {missing_unique}",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        available_sorted = sorted(available)
+        if not train_sites:
+            if available_sorted:
+                train_sites = [available_sorted[0]]
+            else:
+                raise ValueError("No valid sites available for training.")
+        if not val_sites:
+            val_sites = [train_sites[-1]]
+        if not test_sites:
+            test_sites = [val_sites[-1]]
+
+        self.train_sites = train_sites
+        self.val_sites = val_sites
+        self.test_sites = test_sites
 
     @property
     def appliance_names(self) -> list[str]:
@@ -152,13 +205,13 @@ class NilmDataModule(pl.LightningDataModule):
         """Download data if needed."""
         all_sites = (self.train_sites or []) + (self.val_sites or []) + (self.test_sites or [])
         for sid in all_sites:
-            try:
+            with suppress(Exception):
                 self._loader.load_site(sid)
-            except Exception:
-                pass  # Will handle in setup
 
     def setup(self, stage: str | None = None) -> None:
         """Set up datasets for training/validation/testing."""
+        self._resolve_split_sites()
+
         # Load site data
         train_data = [self._loader.load_site(sid) for sid in self.train_sites]
         val_data = [self._loader.load_site(sid) for sid in self.val_sites]

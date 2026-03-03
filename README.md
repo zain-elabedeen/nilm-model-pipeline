@@ -118,10 +118,26 @@ uv run --extra dev pytest tests/ -v
 
 ## Experiment tracking
 
-Training metrics are logged to [Weights & Biases](https://wandb.ai/). Since models are deployed to edge devices rather than cloud endpoints, traditional MLOps platforms (Vertex AI, SageMaker) are not a good fit. W&B provides experiment comparison, loss visualisation, and hyperparameter sweep tracking without the production-serving infrastructure we don't need.
+Training supports:
+- [Weights & Biases](https://wandb.ai/)
+- [MLflow](https://mlflow.org/)
 
 W&B logging is disabled by default. Enable it with:
 
 ```bash
 python scripts/train.py logging.use_wandb=true
+```
+
+MLflow logging is also disabled by default. Enable it with a local tracking store:
+
+```bash
+python scripts/train.py \
+  logging.use_mlflow=true \
+  logging.mlflow_tracking_uri=file:$(pwd)/mlruns
+```
+
+Then launch the MLflow UI:
+
+```bash
+mlflow ui --backend-store-uri $(pwd)/mlruns
 ```
