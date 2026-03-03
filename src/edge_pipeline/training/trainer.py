@@ -137,6 +137,7 @@ def train_model(
     batch_size: int = 256,
     max_epochs: int = 100,
     learning_rate: float = 1e-3,
+    stride: int = 5,
     use_amda: bool = True,
     amda_scale: float = 2.5,
     num_workers: int = 4,
@@ -176,6 +177,7 @@ def train_model(
         num_workers=num_workers,
         use_amda=use_amda,
         amda_scale=amda_scale,
+        stride=stride,
     )
 
     # Create model
