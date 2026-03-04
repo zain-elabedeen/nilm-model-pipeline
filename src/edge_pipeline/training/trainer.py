@@ -127,8 +127,11 @@ class NilmTrainer:
                 save_top_k=3,
                 save_last=True,
             ),
-            LearningRateMonitor(logging_interval="epoch"),
         ]
+
+        # LearningRateMonitor requires an active logger.
+        if logger is not False:
+            callbacks.append(LearningRateMonitor(logging_interval="epoch"))
 
         # Trainer
         self.trainer = pl.Trainer(
