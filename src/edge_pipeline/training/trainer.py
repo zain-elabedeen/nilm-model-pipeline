@@ -38,11 +38,14 @@ class NilmTrainer:
         gradient_clip_val: float = 1.0,
         use_wandb: bool = True,
         wandb_offline: bool = False,
+        wandb_watch_gradients: bool = False,
+        wandb_watch_log_freq: int = 500,
         use_mlflow: bool = False,
         mlflow_tracking_uri: str | None = None,
         mlflow_experiment_name: str | None = None,
         mlflow_run_name: str | None = None,
         check_val_every_n_epoch: int = 1,
+        log_every_n_steps: int = 50,
     ):
         """
         Initialise trainer.
@@ -61,10 +64,13 @@ class NilmTrainer:
             gradient_clip_val: Gradient clipping value
             use_wandb: Whether to use Weights & Biases logging
             wandb_offline: Run W&B in offline mode
+            wandb_watch_gradients: Log W&B gradient histograms (can slow training)
+            wandb_watch_log_freq: Gradient watch logging frequency
             use_mlflow: Whether to use MLflow tracking
             mlflow_tracking_uri: MLflow tracking URI (e.g. file:./mlruns)
             mlflow_experiment_name: MLflow experiment name
             mlflow_run_name: MLflow run name
+            log_every_n_steps: Lightning metric logging frequency
         """
         self.model = model
         self.datamodule = datamodule
@@ -81,7 +87,8 @@ class NilmTrainer:
                 offline=wandb_offline,
                 log_model=True,
             )
-            wandb_logger.watch(model, log="gradients", log_freq=100)
+            if wandb_watch_gradients:
+                wandb_logger.watch(model, log="gradients", log_freq=wandb_watch_log_freq)
             loggers.append(wandb_logger)
 
         if use_mlflow:
@@ -143,7 +150,7 @@ class NilmTrainer:
             callbacks=callbacks,
             logger=logger,
             enable_progress_bar=True,
-            log_every_n_steps=20,
+            log_every_n_steps=log_every_n_steps,
             check_val_every_n_epoch=check_val_every_n_epoch,
         )
 
@@ -182,11 +189,17 @@ def train_model(
     num_workers: int = 4,
     output_dir: str = "outputs",
     use_wandb: bool = True,
+    wandb_watch_gradients: bool = False,
+    wandb_watch_log_freq: int = 500,
     use_mlflow: bool = False,
     mlflow_tracking_uri: str | None = None,
     mlflow_experiment_name: str | None = None,
     mlflow_run_name: str | None = None,
     check_val_every_n_epoch: int = 1,
+    log_every_n_steps: int = 50,
+    accelerator: Literal["auto", "cpu", "gpu", "mps"] = "auto",
+    devices: int | str = "auto",
+    precision: Literal["32", "16-mixed", "bf16-mixed"] = "32",
     train_sites: list[str] | None = None,
     val_sites: list[str] | None = None,
     test_sites: list[str] | None = None,
@@ -208,11 +221,17 @@ def train_model(
         num_workers: DataLoader workers (reduce to 2 on Colab)
         output_dir: Output directory
         use_wandb: Whether to use W&B logging
+        wandb_watch_gradients: Log W&B gradient histograms (can slow training)
+        wandb_watch_log_freq: Gradient watch logging frequency
         use_mlflow: Whether to use MLflow logging
         mlflow_tracking_uri: MLflow tracking URI
         mlflow_experiment_name: MLflow experiment name
         mlflow_run_name: MLflow run name
         check_val_every_n_epoch: Run Validation every n epochs
+        log_every_n_steps: Lightning metric logging frequency
+        accelerator: Device accelerator
+        devices: Number of devices
+        precision: Training precision
         train_sites: Optional explicit list of train site IDs
         val_sites: Optional explicit list of validation site IDs
         test_sites: Optional explicit list of test site IDs
@@ -264,12 +283,18 @@ def train_model(
         experiment_name=f"{model_type}_amda{amda_scale:.1f}" if use_amda else model_type,
         output_dir=output_dir,
         max_epochs=max_epochs,
+        accelerator=accelerator,
+        devices=devices,
+        precision=precision,
         use_wandb=use_wandb,
+        wandb_watch_gradients=wandb_watch_gradients,
+        wandb_watch_log_freq=wandb_watch_log_freq,
         use_mlflow=use_mlflow,
         mlflow_tracking_uri=mlflow_tracking_uri,
         mlflow_experiment_name=mlflow_experiment_name,
         mlflow_run_name=mlflow_run_name,
         check_val_every_n_epoch=check_val_every_n_epoch,
+        log_every_n_steps=log_every_n_steps,
     )
 
     # Train
