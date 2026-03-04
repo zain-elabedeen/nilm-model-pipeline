@@ -87,3 +87,51 @@ def test_auto_split_with_single_site() -> None:
     assert dm.val_sites == ["F01"]
     assert dm.test_sites == ["F01"]
     assert len(dm.train_dataset) > 0
+
+
+def test_auto_split_shuffles_deterministically() -> None:
+    loader = DummyLoader([f"F{i:02d}" for i in range(1, 10)])
+
+    dm_a = NilmDataModule(
+        loader=loader,
+        window_size=60,
+        stride=10,
+        batch_size=8,
+        num_workers=0,
+        use_amda=False,
+        auto_split_shuffle=True,
+        auto_split_seed=123,
+    )
+    dm_b = NilmDataModule(
+        loader=loader,
+        window_size=60,
+        stride=10,
+        batch_size=8,
+        num_workers=0,
+        use_amda=False,
+        auto_split_shuffle=True,
+        auto_split_seed=123,
+    )
+
+    assert dm_a.train_sites == dm_b.train_sites
+    assert dm_a.val_sites == dm_b.val_sites
+    assert dm_a.test_sites == dm_b.test_sites
+    assert dm_a.train_sites != ["F01", "F02", "F03", "F04", "F05", "F06"]
+
+
+def test_auto_split_can_disable_shuffle() -> None:
+    loader = DummyLoader([f"F{i:02d}" for i in range(1, 10)])
+
+    dm = NilmDataModule(
+        loader=loader,
+        window_size=60,
+        stride=10,
+        batch_size=8,
+        num_workers=0,
+        use_amda=False,
+        auto_split_shuffle=False,
+    )
+
+    assert dm.train_sites == ["F01", "F02", "F03", "F04", "F05", "F06"]
+    assert dm.val_sites == ["F07"]
+    assert dm.test_sites == ["F08", "F09"]

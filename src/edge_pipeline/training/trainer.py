@@ -187,6 +187,11 @@ def train_model(
     mlflow_experiment_name: str | None = None,
     mlflow_run_name: str | None = None,
     check_val_every_n_epoch: int = 1,
+    train_sites: list[str] | None = None,
+    val_sites: list[str] | None = None,
+    test_sites: list[str] | None = None,
+    auto_split_shuffle: bool = True,
+    auto_split_seed: int = 42,
     loader: NilmDatasetLoader | None = None,
 ) -> tuple[NilmModel, NilmTrainer]:
     """
@@ -208,6 +213,11 @@ def train_model(
         mlflow_experiment_name: MLflow experiment name
         mlflow_run_name: MLflow run name
         check_val_every_n_epoch: Run Validation every n epochs
+        train_sites: Optional explicit list of train site IDs
+        val_sites: Optional explicit list of validation site IDs
+        test_sites: Optional explicit list of test site IDs
+        auto_split_shuffle: Shuffle sites before auto split (when splits not provided)
+        auto_split_seed: Random seed for deterministic auto split
         loader: Optional dataset loader. If None, uses SIDED.
 
     Returns:
@@ -223,9 +233,14 @@ def train_model(
         window_size=window_size,
         batch_size=batch_size,
         num_workers=num_workers,
+        train_sites=train_sites,
+        val_sites=val_sites,
+        test_sites=test_sites,
         use_amda=use_amda,
         amda_scale=amda_scale,
         stride=stride,
+        auto_split_shuffle=auto_split_shuffle,
+        auto_split_seed=auto_split_seed,
     )
 
     # Create model
