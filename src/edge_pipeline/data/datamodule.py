@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning.utilities.rank_zero import rank_zero_info
 from torch.utils.data import DataLoader, Dataset
 
 from edge_pipeline.data.augmentation import AMDATransform
@@ -73,6 +74,8 @@ class NilmDataModule(pl.LightningDataModule):
         use_amda: bool = True,
         amda_scale: float = 2.5,
         use_robust_scaling: bool = True,
+        auto_split_shuffle: bool = True,
+        auto_split_seed: int = 42,
     ):
         """
         Initialise DataModule.
@@ -93,6 +96,8 @@ class NilmDataModule(pl.LightningDataModule):
             use_amda: Whether to apply AMDA augmentation
             amda_scale: AMDA base scaling factor
             use_robust_scaling: Use robust (median/IQR) vs standard scaling
+            auto_split_shuffle: Shuffle sites before auto-splitting
+            auto_split_seed: Random seed for deterministic auto-splitting
         """
         super().__init__()
         self.save_hyperparameters(ignore=["loader"])
@@ -112,6 +117,10 @@ class NilmDataModule(pl.LightningDataModule):
         self.use_amda = use_amda
         self.amda_scale = amda_scale
         self.use_robust_scaling = use_robust_scaling
+        self.auto_split_shuffle = auto_split_shuffle
+        self.auto_split_seed = auto_split_seed
+        self._used_auto_split = False
+        self._did_log_setup_summary = False
 
         # Resolve site splits (new names take precedence over legacy aliases)
         self.train_sites = train_sites or train_facilities
@@ -120,6 +129,7 @@ class NilmDataModule(pl.LightningDataModule):
 
         # Auto-split if no explicit splits given
         if self.train_sites is None and self.val_sites is None and self.test_sites is None:
+            self._used_auto_split = True
             self._auto_split()
 
         self.window_generator: WindowGenerator | None = None
@@ -129,23 +139,33 @@ class NilmDataModule(pl.LightningDataModule):
 
     def _auto_split(self) -> None:
         """Split available sites 70/15/15 when no explicit splits are given."""
-        sites = self._loader.available_sites()
+        sites = sorted(self._loader.available_sites())
         if not sites:
             raise ValueError("No sites available from dataset loader.")
 
+        if self.auto_split_shuffle:
+            rng = np.random.default_rng(self.auto_split_seed)
+            sites = list(rng.permutation(sites))
+
         n = len(sites)
-        if n == 1:
+        if n < 3:
             self.train_sites = [sites[0]]
-            self.val_sites = [sites[0]]
-            self.test_sites = [sites[0]]
+            self.val_sites = [sites[-1]]
+            self.test_sites = [sites[-1]]
             return
 
         n_train = max(1, int(n * 0.7))
         n_val = max(1, int(n * 0.15))
 
-        self.train_sites = sites[:n_train]
-        self.val_sites = sites[n_train:n_train + n_val]
-        self.test_sites = sites[n_train + n_val:]
+        # Guarantee at least one test site.
+        if n_train + n_val >= n:
+            n_val = max(1, n - n_train - 1)
+        if n_train + n_val >= n:
+            n_train = max(1, n - n_val - 1)
+
+        self.train_sites = sorted(sites[:n_train])
+        self.val_sites = sorted(sites[n_train:n_train + n_val])
+        self.test_sites = sorted(sites[n_train + n_val:])
 
         # Keep every split non-empty for tiny datasets.
         if not self.val_sites:
@@ -250,6 +270,58 @@ class NilmDataModule(pl.LightningDataModule):
         )
         self.val_dataset = NilmTorchDataset(val_inputs, val_targets)
         self.test_dataset = NilmTorchDataset(test_inputs, test_targets)
+
+        if not self._did_log_setup_summary:
+            self._log_setup_summary(
+                train_data=train_data,
+                val_data=val_data,
+                test_data=test_data,
+                train_inputs=train_inputs,
+                val_inputs=val_inputs,
+                test_inputs=test_inputs,
+            )
+            self._did_log_setup_summary = True
+
+    def _log_setup_summary(
+        self,
+        train_data: list[FacilityData],
+        val_data: list[FacilityData],
+        test_data: list[FacilityData],
+        train_inputs: np.ndarray,
+        val_inputs: np.ndarray,
+        test_inputs: np.ndarray,
+    ) -> None:
+        """Log split and window summary once per run."""
+        split_mode = "explicit"
+        if self._used_auto_split:
+            split_mode = "auto-shuffled" if self.auto_split_shuffle else "auto-contiguous"
+
+        rank_zero_info(
+            "[NilmDataModule] split="
+            f"{split_mode}, window_size={self.window_size}, stride={self.stride}, "
+            f"robust_scaling={self.use_robust_scaling}, use_amda={self.use_amda}, "
+            f"amda_scale={self.amda_scale}, auto_split_seed={self.auto_split_seed}"
+        )
+
+        train_sites = self.train_sites or []
+        val_sites = self.val_sites or []
+        test_sites = self.test_sites or []
+
+        rank_zero_info(f"[NilmDataModule] train_sites ({len(train_sites)}): {train_sites}")
+        rank_zero_info(f"[NilmDataModule] val_sites ({len(val_sites)}): {val_sites}")
+        rank_zero_info(f"[NilmDataModule] test_sites ({len(test_sites)}): {test_sites}")
+
+        train_steps = sum(len(f.aggregate) for f in train_data)
+        val_steps = sum(len(f.aggregate) for f in val_data)
+        test_steps = sum(len(f.aggregate) for f in test_data)
+        rank_zero_info(
+            "[NilmDataModule] timesteps "
+            f"train={train_steps:,}, val={val_steps:,}, test={test_steps:,}"
+        )
+        rank_zero_info(
+            "[NilmDataModule] windows "
+            f"train={len(train_inputs):,}, val={len(val_inputs):,}, test={len(test_inputs):,}"
+        )
 
     def _generate_all_windows(
         self, facilities: list[FacilityData]
