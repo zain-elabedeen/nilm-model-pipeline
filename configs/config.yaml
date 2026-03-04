@@ -24,7 +24,7 @@ data:
 # Training
 training:
   max_epochs: 30
-  patience: 10
+  patience: 20
   accelerator: auto
   devices: auto
   precision: "32"
