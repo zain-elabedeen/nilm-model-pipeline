@@ -63,62 +63,79 @@ class OnnxExporter:
         Returns:
             Path to exported ONNX file
         """
+        # Export on CPU to avoid device mismatch when a trained model stays on CUDA.
+        # Restore original state afterwards so callers can continue using the model.
+        try:
+            original_device = next(self.model.parameters()).device
+        except StopIteration:
+            original_device = torch.device("cpu")
+        original_mode_training = self.model.training
+
         self.model.eval()
+        self.model.to("cpu")
 
-        # Get example input
-        example_input = self.model.get_example_input()
-        window_size = example_input.shape[1]
+        try:
+            # Get example input
+            example_input = self.model.get_example_input().to("cpu")
+            window_size = example_input.shape[1]
 
-        # Export path
-        onnx_path = self.output_dir / f"{self.model_name}.onnx"
+            # Export path
+            onnx_path = self.output_dir / f"{self.model_name}.onnx"
 
-        # Export to ONNX
-        torch.onnx.export(
-            self.model,
-            example_input,
-            str(onnx_path),
-            input_names=[self.INPUT_NAME],
-            output_names=[self.OUTPUT_NAME],
-            dynamic_axes=None,  # Fixed batch size of 1
-            opset_version=self.OPSET_VERSION,
-            do_constant_folding=True,
-            export_params=True,
-            dynamo=False,
-        )
+            # Export to ONNX
+            torch.onnx.export(
+                self.model,
+                example_input,
+                str(onnx_path),
+                input_names=[self.INPUT_NAME],
+                output_names=[self.OUTPUT_NAME],
+                dynamic_axes=None,  # Fixed batch size of 1
+                opset_version=self.OPSET_VERSION,
+                do_constant_folding=True,
+                export_params=True,
+                dynamo=False,
+            )
 
-        # Add metadata to ONNX model
-        onnx_model = onnx.load(str(onnx_path))
+            # Add metadata to ONNX model
+            onnx_model = onnx.load(str(onnx_path))
 
-        # Add model metadata
-        metadata = {
-            "model_type": self.model.__class__.__name__,
-            "window_size": window_size,
-            "num_appliances": self.model.num_appliances,
-            "appliances": getattr(
-                self.model, "appliance_names",
-                ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"],
-            ),
-            "version": "1.0.0",
-        }
+            # Add model metadata
+            metadata = {
+                "model_type": self.model.__class__.__name__,
+                "window_size": window_size,
+                "num_appliances": self.model.num_appliances,
+                "appliances": getattr(
+                    self.model, "appliance_names",
+                    ["BATTERY", "SOLAR", "COOLING", "GENERATOR", "BASE_LOAD"],
+                ),
+                "version": "1.0.0",
+            }
 
-        for key, value in metadata.items():
-            meta = onnx_model.metadata_props.add()
-            meta.key = key
-            meta.value = str(value)
+            for key, value in metadata.items():
+                meta = onnx_model.metadata_props.add()
+                meta.key = key
+                meta.value = str(value)
 
-        onnx.save(onnx_model, str(onnx_path))
+            onnx.save(onnx_model, str(onnx_path))
 
-        # Export normalisation metadata
-        if normalisation_metadata is not None:
-            metadata_path = self.output_dir / f"{self.model_name}_metadata.json"
-            with open(metadata_path, "w") as f:
-                json.dump(normalisation_metadata, f, indent=2)
+            # Export normalisation metadata
+            if normalisation_metadata is not None:
+                metadata_path = self.output_dir / f"{self.model_name}_metadata.json"
+                with open(metadata_path, "w") as f:
+                    json.dump(normalisation_metadata, f, indent=2)
 
-        # Validate
-        if validate:
-            self._validate(onnx_path, example_input)
+            # Validate
+            if validate:
+                self._validate(onnx_path, example_input)
 
-        return onnx_path
+            return onnx_path
+        finally:
+            # Restore model state/device
+            self.model.to(original_device)
+            if original_mode_training:
+                self.model.train()
+            else:
+                self.model.eval()
 
     def _validate(self, onnx_path: Path, example_input: torch.Tensor) -> None:
         """Validate exported ONNX model."""
