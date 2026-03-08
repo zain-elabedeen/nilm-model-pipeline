@@ -94,6 +94,19 @@ The export produces:
 - Output: `[1, num_appliances]` float32 (power per category)
 - Opset: 17
 
+## Run ONNX inference (CLI)
+
+Given an exported `nilm_colab.onnx` and `nilm_colab_metadata.json`, run one-window inference:
+
+```bash
+python scripts/infer_onnx.py \
+  --onnx nilm_colab.onnx \
+  --metadata nilm_colab_metadata.json \
+  --window-file my_window_288.txt
+```
+
+`my_window_288.txt` must contain exactly `window_size` aggregate values (comma, space, or newline separated).
+
 ## AMDA augmentation
 
 AMDA (Appliance Magnitude-aware Data Augmentation) improves generalisation by scaling appliances inversely to their power contribution:
@@ -141,3 +154,91 @@ Then launch the MLflow UI:
 ```bash
 mlflow ui --backend-store-uri $(pwd)/mlruns
 ```
+
+## Register ONNX model in Vertex AI Model Registry (Colab)
+
+After exporting `nilm_colab.onnx` and `nilm_colab_metadata.json`, register them as a Vertex model version:
+
+```python
+!pip install -q google-cloud-aiplatform google-cloud-storage
+```
+
+```python
+from google.colab import auth
+auth.authenticate_user()
+```
+
+```bash
+python scripts/vertex/register_model.py \
+  --project-id "$PROJECT_ID" \
+  --region "europe-west3" \
+  --bucket "gs://$VERTEX_BUCKET" \
+  --onnx-path "exports/nilm_colab.onnx" \
+  --metadata-path "exports/nilm_colab_metadata.json" \
+  --display-name "nilm-atcn" \
+  --label "framework=onnx" \
+  --label "stage=colab" \
+  --serving-container-image-uri "europe-west3-docker.pkg.dev/$PROJECT_ID/edge-serving/onnx-runtime:latest"
+```
+
+If your artifacts are already in GCS, skip upload and register directly:
+
+```bash
+python scripts/vertex/register_model.py \
+  --project-id "$PROJECT_ID" \
+  --region "europe-west3" \
+  --display-name "nilm-atcn" \
+  --artifact-uri "gs://nilm_model_artifacts/vertex-model-artifacts/nilm-atcn/<timestamp>" \
+  --serving-container-image-uri "europe-west3-docker.pkg.dev/$PROJECT_ID/edge-serving/onnx-runtime:latest"
+```
+
+## Build Vertex serving image
+
+This repo includes a dedicated ONNX serving container for Vertex custom prediction:
+
+- API: `scripts/vertex/serve_onnx.py`
+- Dockerfile: `Dockerfile.vertex.serving`
+- Cloud Build config: `cloudbuild.vertex.serving.yaml`
+
+Build and push it to Artifact Registry:
+
+```bash
+PROJECT_ID="<your-project-id>" \
+REGION="europe-west3" \
+AR_REPO="edge-serving" \
+IMAGE_NAME="onnx-runtime" \
+scripts/vertex/build_push_serving_image.sh
+```
+
+Serving API contract (`scripts/vertex/serve_onnx.py`):
+
+```json
+{
+  "instances": [
+    [123.4, 125.8, 127.1, 128.0, 126.6]
+  ]
+}
+```
+
+Each instance must contain exactly `window_size` floats (for your runs: `288`).
+
+Response:
+
+```json
+{
+  "predictions": [
+    {
+      "BATTERY": 10.2,
+      "SOLAR": -95.1,
+      "COOLING": 48.3,
+      "GENERATOR": -301.0,
+      "BASE_LOAD": 520.7
+    }
+  ]
+}
+```
+
+Notes:
+- `--serving-container-image-uri` must be a **prediction** container (not the training image from `Dockerfile.vertex`).
+- The script supports both flows: upload local artifacts first, or register from an existing `--artifact-uri`.
+- You can reuse the same `display_name` with `--parent-model` later to create new versions.
