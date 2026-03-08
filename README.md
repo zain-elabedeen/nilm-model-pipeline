@@ -181,7 +181,64 @@ python scripts/vertex/register_model.py \
   --serving-container-image-uri "europe-west3-docker.pkg.dev/$PROJECT_ID/edge-serving/onnx-runtime:latest"
 ```
 
+If your artifacts are already in GCS, skip upload and register directly:
+
+```bash
+python scripts/vertex/register_model.py \
+  --project-id "$PROJECT_ID" \
+  --region "europe-west3" \
+  --display-name "nilm-atcn" \
+  --artifact-uri "gs://nilm_model_artifacts/vertex-model-artifacts/nilm-atcn/<timestamp>" \
+  --serving-container-image-uri "europe-west3-docker.pkg.dev/$PROJECT_ID/edge-serving/onnx-runtime:latest"
+```
+
+## Build Vertex serving image
+
+This repo includes a dedicated ONNX serving container for Vertex custom prediction:
+
+- API: `scripts/vertex/serve_onnx.py`
+- Dockerfile: `Dockerfile.vertex.serving`
+- Cloud Build config: `cloudbuild.vertex.serving.yaml`
+
+Build and push it to Artifact Registry:
+
+```bash
+PROJECT_ID="<your-project-id>" \
+REGION="europe-west3" \
+AR_REPO="edge-serving" \
+IMAGE_NAME="onnx-runtime" \
+scripts/vertex/build_push_serving_image.sh
+```
+
+Serving API contract (`scripts/vertex/serve_onnx.py`):
+
+```json
+{
+  "instances": [
+    [123.4, 125.8, 127.1, 128.0, 126.6]
+  ]
+}
+```
+
+Each instance must contain exactly `window_size` floats (for your runs: `288`).
+
+Response:
+
+```json
+{
+  "predictions": [
+    {
+      "BATTERY": 10.2,
+      "SOLAR": -95.1,
+      "COOLING": 48.3,
+      "GENERATOR": -301.0,
+      "BASE_LOAD": 520.7
+    }
+  ]
+}
+```
+
 Notes:
 - `--serving-container-image-uri` must be a **prediction** container (not the training image from `Dockerfile.vertex`).
-- The script uploads artifacts to GCS first, then registers the model in Vertex Model Registry.
+- The script supports both flows: upload local artifacts first, or register from an existing `--artifact-uri`.
 - You can reuse the same `display_name` with `--parent-model` later to create new versions.

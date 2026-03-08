@@ -16,8 +16,8 @@ if [[ -z "${PROJECT_ID}" || "${PROJECT_ID}" == "(unset)" ]]; then
 fi
 
 REGION="${REGION:-${VERTEX_REGION:-us-central1}}"
-AR_REPO="${AR_REPO:-${VERTEX_TRAIN_AR_REPO:-edge-model-pipeline}}"
-IMAGE_NAME="${IMAGE_NAME:-${VERTEX_TRAIN_IMAGE_NAME:-edge-model}}"
+AR_REPO="${AR_REPO:-${VERTEX_SERVING_AR_REPO:-edge-serving}}"
+IMAGE_NAME="${IMAGE_NAME:-${VERTEX_SERVING_IMAGE_NAME:-onnx-runtime}}"
 ENABLE_APIS="${ENABLE_APIS:-true}"
 
 if [[ -n "${IMAGE_TAG:-}" ]]; then
@@ -47,14 +47,14 @@ if ! gcloud artifacts repositories describe "${AR_REPO}" \
     --repository-format=docker \
     --location="${REGION}" \
     --project="${PROJECT_ID}" \
-    --description="Vertex AI training images"
+    --description="Vertex AI prediction images"
 fi
 
 gcloud builds submit "${REPO_ROOT}" \
   --project="${PROJECT_ID}" \
-  --config="${REPO_ROOT}/cloudbuild.vertex.yaml" \
+  --config="${REPO_ROOT}/cloudbuild.vertex.serving.yaml" \
   --substitutions="_IMAGE_REPO=${IMAGE_REPO},_IMAGE_TAG=${TAG}"
 
-echo "Pushed images:"
+echo "Pushed serving images:"
 echo "  ${IMAGE_URI}"
 echo "  ${LATEST_URI}"

@@ -1,0 +1,17 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PORT=8080
+
+COPY scripts/vertex/requirements-serving.txt /app/requirements-serving.txt
+RUN pip install --upgrade pip && pip install -r /app/requirements-serving.txt
+
+COPY scripts/vertex/serve_onnx.py /app/serve_onnx.py
+
+EXPOSE 8080
+
+ENTRYPOINT ["python", "/app/serve_onnx.py"]

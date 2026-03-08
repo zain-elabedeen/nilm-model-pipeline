@@ -111,14 +111,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--project-id", default=None)
     parser.add_argument("--region", default="us-central1")
-    parser.add_argument("--bucket", required=True, help="GCS bucket name or gs://bucket")
+    parser.add_argument("--bucket", default=None, help="GCS bucket name or gs://bucket")
     parser.add_argument(
         "--gcs-prefix",
         default="vertex-model-artifacts",
         help="Folder prefix inside the bucket",
     )
 
-    parser.add_argument("--onnx-path", required=True, type=Path)
+    parser.add_argument("--artifact-uri", default=None, help="Existing gs:// path with model files")
+    parser.add_argument("--onnx-path", type=Path, default=None)
     parser.add_argument("--metadata-path", type=Path, default=None)
 
     parser.add_argument("--display-name", required=True)
@@ -144,35 +145,40 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    if not args.onnx_path.exists():
-        raise SystemExit(f"ONNX file not found: {args.onnx_path}")
-    if args.metadata_path is not None and not args.metadata_path.exists():
-        raise SystemExit(f"Metadata file not found: {args.metadata_path}")
-
     project_id = _resolve_project_id(args.project_id)
-    bucket_name = _normalize_bucket_name(args.bucket)
     labels = _parse_labels(args.label)
 
     aiplatform, storage = _load_google_cloud_libs()
 
-# Upload model artifacts to GCS
+    if args.artifact_uri:
+        if not args.artifact_uri.startswith("gs://"):
+            raise SystemExit("--artifact-uri must start with gs://")
+        artifact_uri = args.artifact_uri
+        print(f"Using existing artifact URI: {artifact_uri}")
+    else:
+        if not args.bucket:
+            raise SystemExit("Provide --bucket when --artifact-uri is not set.")
+        if args.onnx_path is None:
+            raise SystemExit("Provide --onnx-path when --artifact-uri is not set.")
+        if not args.onnx_path.exists():
+            raise SystemExit(f"ONNX file not found: {args.onnx_path}")
+        if args.metadata_path is not None and not args.metadata_path.exists():
+            raise SystemExit(f"Metadata file not found: {args.metadata_path}")
 
-    print("Uploading model artifacts to GCS...")
-    artifact_uri, uploaded_uris = _upload_artifacts(
-        storage,
-        project_id=project_id,
-        bucket_name=bucket_name,
-        gcs_prefix=args.gcs_prefix,
-        display_name=args.display_name,
-        onnx_path=args.onnx_path,
-        metadata_path=args.metadata_path,
-    )
-
-    for uri in uploaded_uris:
-        print(f"  uploaded: {uri}")
-    print(f"Artifact URI: {artifact_uri}")
-
-# Registering model in Vertex AI Model Registry
+        bucket_name = _normalize_bucket_name(args.bucket)
+        print("Uploading model artifacts to GCS...")
+        artifact_uri, uploaded_uris = _upload_artifacts(
+            storage,
+            project_id=project_id,
+            bucket_name=bucket_name,
+            gcs_prefix=args.gcs_prefix,
+            display_name=args.display_name,
+            onnx_path=args.onnx_path,
+            metadata_path=args.metadata_path,
+        )
+        for uri in uploaded_uris:
+            print(f"  uploaded: {uri}")
+        print(f"Artifact URI: {artifact_uri}")
 
     print("Registering model in Vertex AI Model Registry...")
     aiplatform.init(project=project_id, location=args.region)
