@@ -94,6 +94,19 @@ The export produces:
 - Output: `[1, num_appliances]` float32 (power per category)
 - Opset: 17
 
+## Run ONNX inference (CLI)
+
+Given an exported `nilm_colab.onnx` and `nilm_colab_metadata.json`, run one-window inference:
+
+```bash
+python scripts/infer_onnx.py \
+  --onnx nilm_colab.onnx \
+  --metadata nilm_colab_metadata.json \
+  --window-file my_window_288.txt
+```
+
+`my_window_288.txt` must contain exactly `window_size` aggregate values (comma, space, or newline separated).
+
 ## AMDA augmentation
 
 AMDA (Appliance Magnitude-aware Data Augmentation) improves generalisation by scaling appliances inversely to their power contribution:
@@ -141,3 +154,34 @@ Then launch the MLflow UI:
 ```bash
 mlflow ui --backend-store-uri $(pwd)/mlruns
 ```
+
+## Register ONNX model in Vertex AI Model Registry (Colab)
+
+After exporting `nilm_colab.onnx` and `nilm_colab_metadata.json`, register them as a Vertex model version:
+
+```python
+!pip install -q google-cloud-aiplatform google-cloud-storage
+```
+
+```python
+from google.colab import auth
+auth.authenticate_user()
+```
+
+```bash
+python scripts/vertex/register_model.py \
+  --project-id "$PROJECT_ID" \
+  --region "europe-west3" \
+  --bucket "gs://$VERTEX_BUCKET" \
+  --onnx-path "exports/nilm_colab.onnx" \
+  --metadata-path "exports/nilm_colab_metadata.json" \
+  --display-name "nilm-atcn" \
+  --label "framework=onnx" \
+  --label "stage=colab" \
+  --serving-container-image-uri "europe-west3-docker.pkg.dev/$PROJECT_ID/edge-serving/onnx-runtime:latest"
+```
+
+Notes:
+- `--serving-container-image-uri` must be a **prediction** container (not the training image from `Dockerfile.vertex`).
+- The script uploads artifacts to GCS first, then registers the model in Vertex Model Registry.
+- You can reuse the same `display_name` with `--parent-model` later to create new versions.
