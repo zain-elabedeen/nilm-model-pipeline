@@ -46,7 +46,7 @@ def _resolve_artifact_paths() -> tuple[Path, Path]:
         return Path(onnx_path_env), Path(metadata_path_env)
 
     if storage_uri:
-        local_dir = Path(tempfile.mkdtemp(prefix="vertex-model-"))
+        local_dir = Path(tempfile.mkdtemp(prefix="onnx-model-"))
         _download_artifact_dir(storage_uri, local_dir)
     else:
         local_dir = Path(os.getenv("MODEL_LOCAL_DIR", "/app/model"))
