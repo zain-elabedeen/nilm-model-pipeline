@@ -6,6 +6,7 @@ Hugging Face and maps SIDED categories to Underscore appliance types.
 
 from enum import Enum
 from pathlib import Path
+from time import perf_counter
 from typing import Iterator
 
 import numpy as np
@@ -70,13 +71,21 @@ class SidedLoader(NilmDatasetLoader):
         from datasets import load_dataset
 
         download_mode = "force_redownload" if self.force_download else None
+        start = perf_counter()
+        print(f"[SidedLoader] Loading dataset '{DATASET_ID}' from Hugging Face...")
         ds = load_dataset(
             DATASET_ID,
             split="train",
             cache_dir=str(self.cache_dir),
             download_mode=download_mode,
         )
+        print(f"[SidedLoader] Dataset loaded in {perf_counter() - start:.1f}s, converting to pandas...")
+        pandas_start = perf_counter()
         df = ds.to_pandas()
+        print(
+            f"[SidedLoader] pandas conversion done in {perf_counter() - pandas_start:.1f}s "
+            f"(rows={len(df):,})"
+        )
 
         # Split into individual facilities by detecting timestamp resets
         # (each facility is one year of data; timestamps jump backwards at boundaries)
@@ -109,6 +118,10 @@ class SidedLoader(NilmDatasetLoader):
                 appliances=appliances,
                 timestamps=pd.DatetimeIndex(timestamps),
             )
+        print(
+            f"[SidedLoader] Prepared {len(self._facilities)} facilities in "
+            f"{perf_counter() - start:.1f}s"
+        )
 
     def load_site(self, site_id: str) -> FacilityData:
         """Load data for a single facility, mapping SIDED columns to Underscore types."""

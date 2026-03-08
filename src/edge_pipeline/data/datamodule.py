@@ -2,8 +2,8 @@
 
 import warnings
 from collections.abc import Callable
-from contextlib import suppress
 from pathlib import Path
+from time import perf_counter
 
 import numpy as np
 import pytorch_lightning as pl
@@ -224,24 +224,40 @@ class NilmDataModule(pl.LightningDataModule):
     def prepare_data(self) -> None:
         """Download data if needed."""
         all_sites = (self.train_sites or []) + (self.val_sites or []) + (self.test_sites or [])
-        for sid in all_sites:
-            with suppress(Exception):
-                self._loader.load_site(sid)
+        unique_sites = sorted(set(all_sites))
+        if not unique_sites:
+            return
+
+        start = perf_counter()
+        rank_zero_info(
+            f"[NilmDataModule] prepare_data: preloading {len(unique_sites)} site(s): {unique_sites}"
+        )
+        for sid in unique_sites:
+            self._loader.load_site(sid)
+        elapsed = perf_counter() - start
+        rank_zero_info(f"[NilmDataModule] prepare_data: done in {elapsed:.1f}s")
 
     def setup(self, stage: str | None = None) -> None:
         """Set up datasets for training/validation/testing."""
+        setup_start = perf_counter()
+        rank_zero_info(f"[NilmDataModule] setup(stage={stage}) starting")
         self._resolve_split_sites()
 
         # Load site data
+        load_start = perf_counter()
         train_data = [self._loader.load_site(sid) for sid in self.train_sites]
         val_data = [self._loader.load_site(sid) for sid in self.val_sites]
         test_data = [self._loader.load_site(sid) for sid in self.test_sites]
+        rank_zero_info(
+            f"[NilmDataModule] setup: loaded split site data in {perf_counter() - load_start:.1f}s"
+        )
 
         # Combine training data for fitting normalisers
         train_agg = np.concatenate([f.aggregate for f in train_data])
         train_app = np.concatenate([f.appliances for f in train_data])
 
         # Fit normalisers on training data
+        norm_start = perf_counter()
         self.window_generator = WindowGenerator(
             window_size=self.window_size,
             stride=self.stride,
@@ -250,11 +266,18 @@ class NilmDataModule(pl.LightningDataModule):
         self.window_generator.fit_normalisers(
             train_agg, train_app, use_robust=self.use_robust_scaling
         )
+        rank_zero_info(
+            f"[NilmDataModule] setup: fit normalisers in {perf_counter() - norm_start:.1f}s"
+        )
 
         # Generate windows
+        window_start = perf_counter()
         train_inputs, train_targets = self._generate_all_windows(train_data)
         val_inputs, val_targets = self._generate_all_windows(val_data)
         test_inputs, test_targets = self._generate_all_windows(test_data)
+        rank_zero_info(
+            f"[NilmDataModule] setup: generated windows in {perf_counter() - window_start:.1f}s"
+        )
 
         # Create augmentation transform for training
         train_transform = None
@@ -281,6 +304,10 @@ class NilmDataModule(pl.LightningDataModule):
                 test_inputs=test_inputs,
             )
             self._did_log_setup_summary = True
+
+        rank_zero_info(
+            f"[NilmDataModule] setup(stage={stage}) completed in {perf_counter() - setup_start:.1f}s"
+        )
 
     def _log_setup_summary(
         self,
