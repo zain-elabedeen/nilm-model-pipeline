@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -18,6 +19,7 @@ from pytorch_lightning.loggers import WandbLogger
 
 from edge_pipeline.data.datamodule import NilmDataModule
 from edge_pipeline.models.base import NilmModel
+from edge_pipeline.training.callbacks import PlainTextProgressCallback
 
 
 class NilmTrainer:
@@ -46,6 +48,7 @@ class NilmTrainer:
         mlflow_run_name: str | None = None,
         check_val_every_n_epoch: int = 1,
         log_every_n_steps: int = 50,
+        enable_progress_bar: bool | None = None,
     ):
         """
         Initialise trainer.
@@ -71,11 +74,18 @@ class NilmTrainer:
             mlflow_experiment_name: MLflow experiment name
             mlflow_run_name: MLflow run name
             log_every_n_steps: Lightning metric logging frequency
+            enable_progress_bar: Enable Lightning TTY progress bar. If None,
+                disables it automatically on Vertex AI.
         """
         self.model = model
         self.datamodule = datamodule
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        if enable_progress_bar is None:
+            enable_progress_bar = not (
+                os.getenv("AIP_MODEL_DIR") or os.getenv("CLOUD_ML_JOB_ID")
+            )
 
         # Logger
         loggers = []
@@ -136,6 +146,9 @@ class NilmTrainer:
             ),
         ]
 
+        if not enable_progress_bar:
+            callbacks.append(PlainTextProgressCallback(log_every_n_steps=log_every_n_steps))
+
         # LearningRateMonitor requires an active logger.
         if logger is not False:
             callbacks.append(LearningRateMonitor(logging_interval="epoch"))
@@ -149,7 +162,7 @@ class NilmTrainer:
             gradient_clip_val=gradient_clip_val,
             callbacks=callbacks,
             logger=logger,
-            enable_progress_bar=True,
+            enable_progress_bar=enable_progress_bar,
             log_every_n_steps=log_every_n_steps,
             check_val_every_n_epoch=check_val_every_n_epoch,
         )

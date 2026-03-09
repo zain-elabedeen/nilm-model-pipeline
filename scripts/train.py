@@ -152,6 +152,7 @@ def main(cfg: DictConfig) -> float:
             cfg, "logging.mlflow_experiment_name", default=cfg.logging.project_name
         ),
         mlflow_run_name=OmegaConf.select(cfg, "logging.mlflow_run_name", default=None),
+        log_every_n_steps=OmegaConf.select(cfg, "logging.log_every_n_steps", default=50),
     )
 
     # Train
