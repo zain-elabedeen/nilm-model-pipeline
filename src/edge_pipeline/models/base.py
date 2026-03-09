@@ -53,6 +53,28 @@ class NilmModel(pl.LightningModule, ABC):
         self.metrics = NilmMetrics()
         self.loss_fn = nn.MSELoss()
 
+    def _ensure_finite(
+        self,
+        stage: str,
+        batch_idx: int,
+        x: torch.Tensor,
+        y: torch.Tensor,
+        y_hat: torch.Tensor,
+        loss: torch.Tensor,
+    ) -> None:
+        """Fail fast when inputs, predictions, or loss become non-finite."""
+        checks = {
+            "input": x,
+            "target": y,
+            "prediction": y_hat,
+            "loss": loss,
+        }
+        bad = [name for name, tensor in checks.items() if not torch.isfinite(tensor).all()]
+        if bad:
+            raise RuntimeError(
+                f"Non-finite tensor(s) detected during {stage} at batch_idx={batch_idx}: {bad}"
+            )
+
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -72,6 +94,7 @@ class NilmModel(pl.LightningModule, ABC):
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
+        self._ensure_finite("training", batch_idx, x, y, y_hat, loss)
 
         self.log("train/loss", loss, prog_bar=True)
         return loss
@@ -82,6 +105,7 @@ class NilmModel(pl.LightningModule, ABC):
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
+        self._ensure_finite("validation", batch_idx, x, y, y_hat, loss)
 
         # Compute metrics
         metrics = self.metrics.compute_all(y_hat, y)
@@ -102,6 +126,7 @@ class NilmModel(pl.LightningModule, ABC):
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
+        self._ensure_finite("test", batch_idx, x, y, y_hat, loss)
 
         metrics = self.metrics.compute_all(y_hat, y)
 

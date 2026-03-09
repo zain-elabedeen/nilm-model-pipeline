@@ -34,5 +34,5 @@ use_robust_scaling: true
 strict_site_ids: true
 
 # Augmentation
-use_amda: true
-amda_scale: 2.5
+# use_amda: true
+# amda_scale: 2.5
