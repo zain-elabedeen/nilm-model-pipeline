@@ -3,12 +3,21 @@
 
 name: vertex
 
+vertex:
+  bucket: ${oc.env:VERTEX_BUCKET,nilm_model_artifacts}
+  run_prefix: ${oc.env:VERTEX_RUN_PREFIX,vertex-runs}
+  model_prefix: ${oc.env:VERTEX_MODEL_PREFIX,onnx-model-artifacts}
+  model_display_name: ${oc.env:VERTEX_MODEL_DISPLAY_NAME,nilm-atcn}
+  artifact_uri: ${oc.env:AIP_MODEL_DIR,gs://${vertex.bucket}/${vertex.model_prefix}/${vertex.model_display_name}/${now:%Y%m%d-%H%M%S}}
+
 # Cloud output location. Set VERTEX_OUTPUT_DIR explicitly if needed.
-output_dir: ${oc.env:VERTEX_OUTPUT_DIR,/gcs/${oc.env:VERTEX_BUCKET,edge-model-pipeline-vertex-bucket}/runs/${now:%Y-%m-%d}/${now:%H-%M-%S}}
+output_dir: ${oc.env:VERTEX_OUTPUT_DIR,/gcs/${vertex.bucket}/${vertex.run_prefix}/${now:%Y%m%d-%H%M%S}}
 
 training:
   accelerator: ${oc.env:VERTEX_ACCELERATOR,gpu}
   devices: ${oc.env:VERTEX_DEVICES,1}
+  precision: "${oc.env:VERTEX_DEVICES,bf16-mixed}"
+
 
 data:
   num_workers: ${oc.env:VERTEX_NUM_WORKERS,8}

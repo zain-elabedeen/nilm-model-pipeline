@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload ONNX artifacts to GCS and register a Vertex AI model.
+"""Upload ONNX artifacts to GCS and optionally register a Vertex AI model.
 
 This script is intended for Google Colab / Colab Enterprise workflows.
 
@@ -23,16 +23,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-def _load_google_cloud_libs() -> tuple[object, object]:
+def _load_storage_lib() -> object:
     try:
-        from google.cloud import aiplatform
         from google.cloud import storage
     except ImportError as exc:
         raise SystemExit(
-            "Missing Google Cloud dependencies. In Colab run:\n"
-            "  pip install google-cloud-aiplatform google-cloud-storage"
+            "Missing Google Cloud Storage dependency. In Colab run:\n"
+            "  pip install google-cloud-storage"
         ) from exc
-    return aiplatform, storage
+    return storage
+
+
+def _load_aiplatform_lib() -> object:
+    try:
+        from google.cloud import aiplatform
+    except ImportError as exc:
+        raise SystemExit(
+            "Missing Vertex AI dependency. In Colab run:\n"
+            "  pip install google-cloud-aiplatform"
+        ) from exc
+    return aiplatform
 
 
 def _resolve_project_id(project_id: str | None) -> str:
@@ -105,6 +115,50 @@ def _upload_artifacts(
     return artifact_uri, uploaded_uris
 
 
+def register_uploaded_model(
+    *,
+    project_id: str | None,
+    region: str,
+    artifact_uri: str,
+    display_name: str,
+    serving_container_image_uri: str,
+    description: str = "",
+    labels: dict[str, str] | None = None,
+    predict_route: str = "/predict",
+    health_route: str = "/health",
+    serving_port: int = 8080,
+    parent_model: str | None = None,
+    version_aliases: list[str] | None = None,
+    set_default_version: bool = False,
+) -> object:
+    """Register an already-uploaded model artifact in Vertex AI."""
+    resolved_project_id = _resolve_project_id(project_id)
+    aiplatform = _load_aiplatform_lib()
+    aiplatform.init(project=resolved_project_id, location=region)
+
+    upload_kwargs: dict[str, object] = {
+        "display_name": display_name,
+        "artifact_uri": artifact_uri,
+        "serving_container_image_uri": serving_container_image_uri,
+        "serving_container_predict_route": predict_route,
+        "serving_container_health_route": health_route,
+        "serving_container_ports": [serving_port],
+    }
+
+    if description:
+        upload_kwargs["description"] = description
+    if labels:
+        upload_kwargs["labels"] = labels
+    if parent_model:
+        upload_kwargs["parent_model"] = parent_model
+    if version_aliases:
+        upload_kwargs["version_aliases"] = version_aliases
+    if set_default_version:
+        upload_kwargs["is_default_version"] = True
+
+    return aiplatform.Model.upload(**upload_kwargs)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Upload ONNX artifacts to GCS and register a Vertex AI model."
@@ -125,10 +179,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--display-name", required=True)
     parser.add_argument("--description", default="")
     parser.add_argument("--label", action="append", default=[], help="key=value")
+    parser.add_argument(
+        "--setup-vertex-model",
+        action="store_true",
+        default=False,
+        help="Also register the uploaded artifacts in Vertex AI Model Registry",
+    )
 
     parser.add_argument(
         "--serving-container-image-uri",
-        required=True,
+        default=None,
         help="Container image used later for Vertex Endpoint deployment",
     )
     parser.add_argument("--serving-port", type=int, default=8080)
@@ -148,7 +208,7 @@ def main() -> None:
     project_id = _resolve_project_id(args.project_id)
     labels = _parse_labels(args.label)
 
-    aiplatform, storage = _load_google_cloud_libs()
+    storage = _load_storage_lib()
 
     if args.artifact_uri:
         if not args.artifact_uri.startswith("gs://"):
@@ -180,30 +240,31 @@ def main() -> None:
             print(f"  uploaded: {uri}")
         print(f"Artifact URI: {artifact_uri}")
 
+    if not args.setup_vertex_model:
+        print("Skipping Vertex AI Model Registry registration.")
+        return
+
+    if not args.serving_container_image_uri:
+        raise SystemExit(
+            "Provide --serving-container-image-uri when --setup-vertex-model is enabled."
+        )
+
     print("Registering model in Vertex AI Model Registry...")
-    aiplatform.init(project=project_id, location=args.region)
-
-    upload_kwargs: dict[str, object] = {
-        "display_name": args.display_name,
-        "artifact_uri": artifact_uri,
-        "serving_container_image_uri": args.serving_container_image_uri,
-        "serving_container_predict_route": args.predict_route,
-        "serving_container_health_route": args.health_route,
-        "serving_container_ports": [args.serving_port],
-    }
-
-    if args.description:
-        upload_kwargs["description"] = args.description
-    if labels:
-        upload_kwargs["labels"] = labels
-    if args.parent_model:
-        upload_kwargs["parent_model"] = args.parent_model
-    if args.version_alias:
-        upload_kwargs["version_aliases"] = args.version_alias
-    if args.set_default_version:
-        upload_kwargs["is_default_version"] = True
-
-    model = aiplatform.Model.upload(**upload_kwargs)
+    model = register_uploaded_model(
+        project_id=project_id,
+        region=args.region,
+        artifact_uri=artifact_uri,
+        display_name=args.display_name,
+        serving_container_image_uri=args.serving_container_image_uri,
+        description=args.description,
+        labels=labels,
+        predict_route=args.predict_route,
+        health_route=args.health_route,
+        serving_port=args.serving_port,
+        parent_model=args.parent_model,
+        version_aliases=args.version_alias,
+        set_default_version=args.set_default_version,
+    )
 
     print("Model registered.")
     print(f"Model resource name: {model.resource_name}")

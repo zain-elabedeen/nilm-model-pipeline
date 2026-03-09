@@ -8,31 +8,33 @@ defaults:
 
 # Global settings
 seed: 42
-output_dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+output_dir: outputs/${now:%Y%m%d-%H%M%S}
 
 model:
-  learning_rate: 3e-4
+  learning_rate: 1e-4
 
 # Data
 data:
   window_size: 288
-  batch_size: 128
+  batch_size: 256
   num_workers: 2
   use_amda: false
   amda_scale: 2.5
+  stride: 5
+
 
 # Training
 training:
-  max_epochs: 30
-  patience: 20
+  max_epochs: 25
+  patience: 10
   accelerator: auto
   devices: auto
-  precision: "bf16-mixed"
+  precision: "32"
   gradient_clip_val: 1.0
-  stride: 5
+  stride: 20
   check_val_every_n_epoch: 2
   window_size:  288
-  batch_size: 128
+  batch_size: 256
 
 # Logging
 logging:
@@ -43,7 +45,7 @@ logging:
   mlflow_experiment_name: underscore-edge-model-pipeline
   mlflow_run_name: null
   project_name: underscore-edge-model-pipeline
-  log_every_n_steps: 20
+  log_every_n_steps: 40
 
 # Hydra configuration
 hydra:

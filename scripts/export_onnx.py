@@ -2,7 +2,10 @@
 """Export trained NILM model to ONNX format for Rust deployment."""
 
 import argparse
+import json
+import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
 from edge_pipeline.data.datamodule import NilmDataModule
 from edge_pipeline.export.onnx_exporter import OnnxExporter
@@ -40,6 +43,154 @@ def get_loader(args):
 
     from edge_pipeline.data.sided_loader import SidedLoader
     return SidedLoader(cache_dir=args.data_dir)
+
+
+def create_export_datamodule(
+    *,
+    dataset: str,
+    data_dir: str,
+    window_size: int,
+    batch_size: int = 256,
+    aggregate_column: str = "aggregate",
+    timestamp_column: str = "timestamp",
+) -> NilmDataModule:
+    """Build the datamodule used to recover normalisation metadata."""
+    args = SimpleNamespace(
+        dataset=dataset,
+        data_dir=data_dir,
+        aggregate_column=aggregate_column,
+        timestamp_column=timestamp_column,
+    )
+    loader = get_loader(args)
+    datamodule = NilmDataModule(
+        loader=loader,
+        data_dir=data_dir,
+        window_size=window_size,
+        batch_size=batch_size,
+        use_amda=False,
+    )
+    datamodule.setup()
+    return datamodule
+
+
+def export_checkpoint_artifacts(
+    *,
+    checkpoint_path: str | Path,
+    model_type: str,
+    output_dir: str | Path,
+    model_name: str,
+    data_dir: str,
+    dataset: str,
+    window_size: int,
+    batch_size: int = 256,
+    aggregate_column: str = "aggregate",
+    timestamp_column: str = "timestamp",
+) -> dict[str, Path]:
+    """Export ONNX artifacts for a trained checkpoint."""
+    model = load_model(str(checkpoint_path), model_type)
+    datamodule = create_export_datamodule(
+        dataset=dataset,
+        data_dir=data_dir,
+        window_size=window_size,
+        batch_size=batch_size,
+        aggregate_column=aggregate_column,
+        timestamp_column=timestamp_column,
+    )
+    exporter = OnnxExporter(
+        model=model,
+        output_dir=output_dir,
+        model_name=model_name,
+    )
+    return exporter.export_for_rust(datamodule.get_normalisation_metadata())
+
+
+def _copy_if_exists(src: Path | None, dest: Path) -> bool:
+    """Copy a file if it exists."""
+    if src is None or not src.exists():
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+    return True
+
+
+def persist_training_artifacts(
+    *,
+    artifact_dir: str | Path,
+    model_name: str,
+    experiment_name: str | None,
+    output_dir: str | Path,
+    aip_model_dir: str | None,
+    resolved_config_yaml: str,
+    resolved_config: dict,
+    results: dict,
+    best_checkpoint_path: str | Path | None,
+    last_checkpoint_path: str | Path,
+    data_dir: str,
+    dataset: str,
+    window_size: int,
+    batch_size: int = 256,
+    aggregate_column: str = "aggregate",
+    timestamp_column: str = "timestamp",
+) -> tuple[dict, Path]:
+    """Write exported training artifacts and return the manifest plus its path."""
+    artifact_dir = Path(artifact_dir)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(artifact_dir / "config_resolved.yaml", "w") as f:
+        f.write(resolved_config_yaml)
+
+    with open(artifact_dir / "test_results.json", "w") as f:
+        json.dump(results, f, indent=2)
+
+    best_path = Path(best_checkpoint_path) if best_checkpoint_path else None
+    last_path = Path(last_checkpoint_path)
+    copied_best = _copy_if_exists(best_path, artifact_dir / "best.ckpt")
+    copied_last = _copy_if_exists(last_path, artifact_dir / "last.ckpt")
+
+    export_dir = artifact_dir / "export"
+    export_checkpoint_path = best_path if copied_best else last_path
+    export_paths: dict[str, Path] = {}
+    if export_checkpoint_path.exists():
+        export_paths = export_checkpoint_artifacts(
+            checkpoint_path=export_checkpoint_path,
+            model_type=model_name,
+            output_dir=export_dir,
+            model_name=model_name,
+            data_dir=data_dir,
+            dataset=dataset,
+            window_size=window_size,
+            batch_size=batch_size,
+            aggregate_column=aggregate_column,
+            timestamp_column=timestamp_column,
+        )
+
+    manifest = {
+        "model_name": model_name,
+        "experiment_name": experiment_name,
+        "artifact_dir": str(artifact_dir),
+        "best_checkpoint": str(artifact_dir / "best.ckpt") if copied_best else None,
+        "last_checkpoint": str(artifact_dir / "last.ckpt") if copied_last else None,
+        "onnx": str(export_paths.get("onnx")) if "onnx" in export_paths else None,
+        "rust_config": str(export_paths.get("config")) if "config" in export_paths else None,
+        "results_file": str(artifact_dir / "test_results.json"),
+        "resolved_config_file": str(artifact_dir / "config_resolved.yaml"),
+        "output_dir": str(output_dir),
+        "aip_model_dir": aip_model_dir,
+        "resolved_config": resolved_config,
+    }
+    manifest_path = artifact_dir / "artifact_manifest.json"
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    print(f"[Artifacts] Exported artifacts to {artifact_dir}")
+    if copied_best:
+        print(f"[Artifacts] best checkpoint: {artifact_dir / 'best.ckpt'}")
+    if copied_last:
+        print(f"[Artifacts] last checkpoint: {artifact_dir / 'last.ckpt'}")
+    for name, path in export_paths.items():
+        print(f"[Artifacts] {name}: {path}")
+
+    return manifest, manifest_path
 
 
 def main():
@@ -92,29 +243,19 @@ def main():
     args = parser.parse_args()
 
     print(f"Loading model from {args.checkpoint}")
-    model = load_model(args.checkpoint, args.model_type)
-
-    # Get normalisation metadata from datamodule
     print("Loading normalisation metadata...")
-    loader = get_loader(args)
-    datamodule = NilmDataModule(
-        loader=loader,
-        data_dir=args.data_dir,
-        window_size=args.window_size,
-        use_amda=False,
-    )
-    datamodule.setup()
-    normalisation_metadata = datamodule.get_normalisation_metadata()
-
-    # Export
-    print(f"Exporting to ONNX...")
-    exporter = OnnxExporter(
-        model=model,
+    print("Exporting to ONNX...")
+    paths = export_checkpoint_artifacts(
+        checkpoint_path=args.checkpoint,
+        model_type=args.model_type,
         output_dir=args.output_dir,
         model_name=args.model_name,
+        data_dir=args.data_dir,
+        dataset=args.dataset,
+        window_size=args.window_size,
+        aggregate_column=getattr(args, "aggregate_column", "aggregate"),
+        timestamp_column=getattr(args, "timestamp_column", "timestamp"),
     )
-
-    paths = exporter.export_for_rust(normalisation_metadata)
 
     print(f"\nExported files:")
     for name, path in paths.items():
