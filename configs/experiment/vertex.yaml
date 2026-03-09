@@ -16,8 +16,8 @@ output_dir: ${oc.env:VERTEX_OUTPUT_DIR,/gcs/${vertex.bucket}/${vertex.run_prefix
 training:
   accelerator: ${oc.env:VERTEX_ACCELERATOR,gpu}
   devices: ${oc.env:VERTEX_DEVICES,1}
-  precision: "${oc.env:VERTEX_DEVICES,bf16-mixed}"
-
+  precision: "${oc.env:VERTEX_PRECISION, bf16-mixed}"
+  num_workers: ${oc.env:VERTEX_NUM_WORKERS,8}
 
 data:
   num_workers: ${oc.env:VERTEX_NUM_WORKERS,8}
