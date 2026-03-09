@@ -120,6 +120,7 @@ def main(cfg: DictConfig) -> float:
         use_amda=cfg.data.use_amda,
         amda_scale=cfg.data.amda_scale,
         use_robust_scaling=cfg.data.use_robust_scaling,
+        strict_site_ids=cfg.data.get("strict_site_ids", False),
     )
 
     # Create model

@@ -203,6 +203,7 @@ def train_model(
     train_sites: list[str] | None = None,
     val_sites: list[str] | None = None,
     test_sites: list[str] | None = None,
+    strict_site_ids: bool = False,
     auto_split_shuffle: bool = True,
     auto_split_seed: int = 42,
     loader: NilmDatasetLoader | None = None,
@@ -235,6 +236,7 @@ def train_model(
         train_sites: Optional explicit list of train site IDs
         val_sites: Optional explicit list of validation site IDs
         test_sites: Optional explicit list of test site IDs
+        strict_site_ids: Raise if explicit site IDs are missing
         auto_split_shuffle: Shuffle sites before auto split (when splits not provided)
         auto_split_seed: Random seed for deterministic auto split
         loader: Optional dataset loader. If None, uses SIDED.
@@ -258,6 +260,7 @@ def train_model(
         use_amda=use_amda,
         amda_scale=amda_scale,
         stride=stride,
+        strict_site_ids=strict_site_ids,
         auto_split_shuffle=auto_split_shuffle,
         auto_split_seed=auto_split_seed,
     )

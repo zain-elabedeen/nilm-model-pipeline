@@ -74,6 +74,7 @@ class NilmDataModule(pl.LightningDataModule):
         use_amda: bool = True,
         amda_scale: float = 2.5,
         use_robust_scaling: bool = True,
+        strict_site_ids: bool = False,
         auto_split_shuffle: bool = True,
         auto_split_seed: int = 42,
     ):
@@ -96,6 +97,7 @@ class NilmDataModule(pl.LightningDataModule):
             use_amda: Whether to apply AMDA augmentation
             amda_scale: AMDA base scaling factor
             use_robust_scaling: Use robust (median/IQR) vs standard scaling
+            strict_site_ids: Raise if configured site IDs are missing instead of falling back
             auto_split_shuffle: Shuffle sites before auto-splitting
             auto_split_seed: Random seed for deterministic auto-splitting
         """
@@ -117,6 +119,7 @@ class NilmDataModule(pl.LightningDataModule):
         self.use_amda = use_amda
         self.amda_scale = amda_scale
         self.use_robust_scaling = use_robust_scaling
+        self.strict_site_ids = strict_site_ids
         self.auto_split_shuffle = auto_split_shuffle
         self.auto_split_seed = auto_split_seed
         self._used_auto_split = False
@@ -192,6 +195,11 @@ class NilmDataModule(pl.LightningDataModule):
 
         if missing:
             missing_unique = sorted(set(missing))
+            if self.strict_site_ids:
+                raise ValueError(
+                    f"Configured site IDs not found: {missing_unique}. "
+                    f"Available sites: {sorted(available)}"
+                )
             warnings.warn(
                 f"Configured site IDs not found and will be skipped: {missing_unique}",
                 UserWarning,

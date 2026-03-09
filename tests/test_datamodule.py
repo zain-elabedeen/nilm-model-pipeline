@@ -71,6 +71,25 @@ def test_setup_recovers_from_missing_configured_sites() -> None:
     assert len(dm.test_dataset) > 0
 
 
+def test_setup_raises_when_strict_site_ids_enabled() -> None:
+    loader = DummyLoader(["F01", "F02"])
+    dm = NilmDataModule(
+        loader=loader,
+        window_size=60,
+        stride=10,
+        batch_size=8,
+        num_workers=0,
+        train_sites=["F03"],
+        val_sites=["F02"],
+        test_sites=["F99"],
+        use_amda=False,
+        strict_site_ids=True,
+    )
+
+    with pytest.raises(ValueError, match="Configured site IDs not found"):
+        dm.setup()
+
+
 def test_auto_split_with_single_site() -> None:
     loader = DummyLoader(["F01"])
     dm = NilmDataModule(

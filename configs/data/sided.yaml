@@ -11,24 +11,26 @@ stride: 5
 # Batch size
 batch_size: 128
 num_workers: 2
-# Facility splits
+
+# Facility splits. These use the canonical SIDED file names from Hugging Face.
 train_facilities:
-  - F01
-  - F02
-  - F03
-  - F04
-  - F05
-  - F06
+  - Dealer_LA
+  - Dealer_Offenbach
+  - Dealer_Tokyo
+  - Logistic_LA
+  - Logistic_Offenbach
+  - Logistic_Tokyo
 
 val_facilities:
-  - F07
+  - Office_LA
 
 test_facilities:
-  - F08
-  - F09
+  - Office_Offenbach
+  - Office_Tokyo
 
 # Preprocessing
 use_robust_scaling: true
+strict_site_ids: true
 
 # Augmentation
 use_amda: true
