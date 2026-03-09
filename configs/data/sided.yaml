@@ -12,21 +12,22 @@ stride: 5
 batch_size: 128
 num_workers: 2
 
-# Facility splits. These use the canonical SIDED file names from Hugging Face.
+# Facility splits. Keep training balanced across site type and location,
+# and cover all three site types across validation + test.
 train_facilities:
   - Dealer_LA
   - Dealer_Offenbach
-  - Dealer_Tokyo
   - Logistic_LA
-  - Logistic_Offenbach
   - Logistic_Tokyo
-
-val_facilities:
-  - Office_LA
-
-test_facilities:
   - Office_Offenbach
   - Office_Tokyo
+
+val_facilities:
+  - Dealer_Tokyo
+
+test_facilities:
+  - Logistic_Offenbach
+  - Office_LA
 
 # Preprocessing
 use_robust_scaling: true
